@@ -1,4 +1,4 @@
-(ns multitool.applescript
+(ns org.parkerici.multitool.applescript
   [:require [clojure.string :as str]
    [clojure.java.shell :as shell]])
 

@@ -1,4 +1,4 @@
-(ns multitool.vex)
+(ns org.parkerici.multitool.vex)
 
 ;;; Vectorized fns (after SciCL)
 

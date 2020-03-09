@@ -1,6 +1,6 @@
-(ns multitool.core-test
+(ns org.parkerici.multitool.core-test
   (:use clojure.test)
-  (:use multitool.core)
+  (:use org.parkerici.multitool.core)
   (:require [clojure.string :as str]))
 
 (deftest cl-find-test

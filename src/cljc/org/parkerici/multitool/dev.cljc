@@ -1,4 +1,4 @@
-(ns multitool.dev
+(ns org.parkerici.multitool.dev
   "Utility functions for development only"
   (:require clojure.pprint)
   )

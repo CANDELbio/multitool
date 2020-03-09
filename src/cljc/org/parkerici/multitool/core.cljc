@@ -1,4 +1,4 @@
-(ns multitool.core
+(ns org.parkerici.multitool.core
   "Various generally useful utilities to keep mt sane"
   (:require
    [clojure.string :as str]
@@ -523,7 +523,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; (things that are more for stats or geometry moved to multitool.math)
+;;; (things that are more for stats or geometry moved to org.parkerici.multitool.math)
 
 (defn rand-range [a b]
   (+ a (* (rand) (- b a))))

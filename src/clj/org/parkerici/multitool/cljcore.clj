@@ -1,4 +1,4 @@
-(ns multitool.cljcore
+(ns org.parkerici.multitool.cljcore
   "Java-only stuff"
   (:require
    clojure.java.shell
@@ -6,7 +6,7 @@
    [clojure.pprint :as pprint]
    [clojure.java.io :as io]
    [clojure.java.shell :as shell]
-   [multitool.core :as core]
+   [org.parkerici.multitool.core :as core]
   ))
 
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇

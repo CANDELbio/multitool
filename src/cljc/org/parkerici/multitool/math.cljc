@@ -1,4 +1,4 @@
-(ns multitool.math)
+(ns org.parkerici.multitool.math)
 
 (defn interpolate [a b s]
   (+ (* a (- 1 s)) (* b s)))
