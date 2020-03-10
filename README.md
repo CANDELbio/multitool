@@ -6,10 +6,11 @@ A collection of handy Clojure utilities and language extensions.
 
 # Contents
 
-- core.cljc
+- `core.cljc`
  Simple, general abstractions. 
-- cljcore.clj
+- `cljcore.clj`
  Same, but specific to Java environment
- - math.cljc
+ - `math.cljc`
  Simple math and statistics fns
- - simple string tokenization
+ - `nlp.cljc`
+ simple string tokenization
