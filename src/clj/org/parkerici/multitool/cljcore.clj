@@ -126,7 +126,7 @@
 
 ;;; ⩇⩆⩇ Date/time ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; There's a clj-time package that is no doubt better
+;;; For more serious use, see clj-time https://github.com/clj-time/clj-time
 
 (core/defn-memoized date-formatter [f]
   (java.text.SimpleDateFormat. f))
@@ -195,49 +195,9 @@
       (cons pos (string-search-all string sub (+ 1 pos)))
       ())))
 
-;;; Conceivably do dates as well
-(defn coerce-value
-  "Attempt to turn a string into a number (int or float). Return number if succesful, otherwise original string"
-  [str]
-  (if-let [inum (re-matches #"-?\d+" str)]
-    (try
-      (Integer. inum)
-      (catch Exception _
-        str))
-    (if-let [fnum (re-matches #"-?\d+\.?\d*" str)]
-      (try
-        (Float/parseFloat fnum)
-        (catch Exception _
-          str))
-      str)))
-
-(defn keyword-safe
-  "Turn string into keyword that, replacing chars that will make serialization/deserialization problematic"
-  [str]
-  (keyword (str/replace str #"[ ,\(\):]" "_")))
-
 (defn random-uuid
   []
   (str (java.util.UUID/randomUUID)))
-
-;;; Turn a string into a regex, taking every character literally (not as regex operators)
-(defn re-pattern-literal
-  {:tag java.util.regex.Pattern
-   :added "1.0"
-   :static true}
-  [s]
-  (re-pattern (java.util.regex.Pattern/quote s)))
-
-;;; Probably want keyword maps, or at least an option for that.
-(defn expand-template-string
-  "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings"
-  [template bindings]
-  (let [matches (->> (re-seq #"\{(.*?)\}" template) ;extract the template fields from the entity
-                     (map (fn [[match key]]
-                            [match (or (bindings key) "")])))]
-    (reduce (fn [s [match key]]
-              (str/replace s (re-pattern-literal match) (str key)))
-            template matches)))
 
 (defn now []
   (java.util.Date.))

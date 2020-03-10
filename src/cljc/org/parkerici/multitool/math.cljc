@@ -1,5 +1,7 @@
 (ns org.parkerici.multitool.math)
 
+;;; TODO clean, document, test
+
 (defn interpolate [a b s]
   (+ (* a (- 1 s)) (* b s)))
 
