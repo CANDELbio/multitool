@@ -68,13 +68,15 @@
   (is (not (<* 1 1))))
 
 (defn tokens [s]
-  (str/split s #"\w"))
+  (str/split s #"\W"))
 
 (deftest maxby-minby-test
-  (= "tediously"
-     (max-by count (tokens "this is a tediously long string")))
-  (= "a"
-     (min-by count (tokens "this is a tediously long string"))))
+  (is (= "tediously"
+         (max-by count (tokens "this is a tediously long string"))))
+  (is (= "a"
+         (min-by count (tokens "this is a tediously long string"))))
+  (is (nil? (max-by count [])))
+  (is (nil? (min-by count []))))
 
 (defn rcons [a b] (cons b a))
 

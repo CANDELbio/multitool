@@ -65,6 +65,13 @@
           (catch #?(:clj Throwable :cljs :default) _ str))
         str))))
 
+(defn coerce-boolean
+  "Coerce a value (eg a string from a web API) into a boolean"
+  [v]
+  (if (string? v)
+    (= v "true")
+    (not (nil? v))))
+
 (defn underscore->camelcase
   "Convert foo_bar into fooBar"
   [s]
@@ -296,13 +303,15 @@
 
 (defn max-by "Find the maximim element of `seq` based on keyfn"
   [keyfn seq]
-  (reduce (fn [a b] (if (>* (keyfn a) (keyfn b)) a b))
-          seq))
+  (when-not (empty? seq)
+    (reduce (fn [a b] (if (>* (keyfn a) (keyfn b)) a b))
+            seq)))
 
 (defn min-by "Find the minimum element of `seq` based on keyfn"
   [keyfn seq]
-  (reduce (fn [a b] (if (<* (keyfn a) (keyfn b)) a b))
-          seq))
+  (when-not (empty? seq)
+    (reduce (fn [a b] (if (<* (keyfn a) (keyfn b)) a b))
+            seq)))
 
 (defn lunion "Compute the union of `lists`"
   [& lists]

@@ -1,4 +1,4 @@
-(defproject multitool "0.0.1"
+(defproject org.parkerici/multitool "0.0.1"
   :description "PICI utility library"
   :url "http://github.com/ParkerICI/multitool"
   :license {:name "Eclipse Public License"
