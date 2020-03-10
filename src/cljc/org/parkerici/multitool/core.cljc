@@ -6,8 +6,6 @@
    [clojure.walk :as walk]
    ))
 
-;;; (many based on CL; see https://github.com/mtravers/mtlisp/blob/master/mt-utils.lisp )
-
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; See https://github.com/clojure/core.memoize/ for more memoize hacks
@@ -24,10 +22,10 @@
   [var & body]
   `(def ~var (delay ~@body)))
 
-;;; ⩇⩆⩇ Error handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+;;; ⩇⩆⩇ Exception handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defmacro ignore-errors
-  "Execute `body`; if an exception occurs return `nil`. Note: strongly deprecated for production code."
+  "Execute `body`; if an exception occurs ignore it and return `nil`. Note: strongly deprecated for production code."
   [& body]
   `(try (do ~@body)
         (catch #?(:clj Throwable :cljs :default) e# nil)))
@@ -50,14 +48,6 @@
 
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-
-;;; Replaced with more powerful coerce-numeric
-#_
-(defn parse-numeric
-  [s]
-  #?(:cljs (js/parseFloat s)
-     :clj (Float. s)))
-
 (defn coerce-numeric
   "Attempt to turn str into a number (long or double).
   Return number if succesful, otherwise original string"
@@ -76,8 +66,13 @@
         str))))
 
 (defn underscore->camelcase
+  "Convert foo_bar into fooBar"
   [s]
-  (apply str (map str/capitalize (str/split s #"_"))))
+  (let [parts (str/split s #"_")]
+    (apply str (first parts) (map str/capitalize (rest parts)))))
+
+;;; TODO camelcase->underscore
+;;; Or, before this gets too elaborate, use https://clj-commons.org/camel-snake-kebab/
 
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -93,18 +88,17 @@
      :cljs
      (throw (ex-info "TODO" {}))))
 
-(defn re-quote
+(defn- re-quote
   [s]
   #?(:clj  
      (java.util.regex.Pattern/quote s)
      :cljs
      (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\])" "\\$1")))
 
-(defn re-pattern-literal [string]
+(defn re-pattern-literal
+  "Return a regex that will match the literal string"
+  [string]
   (re-pattern (re-quote string)))
-
-(defn re-pattern-literal-token [string]
-  (re-pattern (str "\\Wstring\\W")))
 
 (defn expand-template-string
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings"
@@ -116,7 +110,6 @@
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
 
-;;; TODO camelcase->underscore
 
 ;;; ⩇⩆⩇ Keywords and namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -124,6 +117,15 @@
   "Make a string into a readable keyword by replacing certain punctuation"
   [str]
   (keyword (str/replace str #"[ ,\(\):]" "_")))
+
+(def key-counter (atom {}))
+
+(defn unique-key
+  "Produce a unique keyword based on root."
+  [root]
+  (swap! key-counter update root #(inc (or % 0)))
+  (keyword (namespace root)
+           (str (name root) (get @key-counter root))))
 
 (defn dens
   "Remove the namespaces that backquote insists on adding"
@@ -133,7 +135,6 @@
     (symbol nil (name %))
     %)
    struct))
-
 
 ;;; ⩇⩆⩇ Variations on standard predicates ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -167,33 +168,48 @@
     (doall thing)
     thing))
 
-;;; Trying to introduce the convention of an = suffix meaning take a value for equality test instead of a predicate.
-(defn remove= [elt seq]
+;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
+(defn remove= 
+  "Remove occurences of elt in seq"
+  [elt seq]
   (remove #(= % elt) seq))
 
-(defn positions "Returns a list of indexes of coll for which pred is  true (if predicate)"
+(defn positions
+  "Returns a list of indexes of coll for which pred is true"
   [pred coll]
   (keep-indexed (fn [idx x]
                   (when (pred x) idx))
                 coll))
 
-(defn positions= [elt coll]
+(defn position
+  "Returns the first index of coll for which pred is true"
+  [pred coll]
+  (first (positions pred coll)))
+
+(defn positions=
+  "Return list of indexes of coll that contain elt"
+  [elt coll]
   (positions #(= % elt) coll))
 
-;;; Isn't this already in clj.core somewhere?
-(defn partition-with [pred coll]
-  ((juxt filter remove) pred seq))
+(defn position=
+  "Returns the first index of coll that contains elt"
+  [elt coll]
+  (first (positions= elt coll)))
 
-;;; Stolen from https://gitlab.com/kenrestivo/utilza
+(defn separate
+  "Separate coll into two collections based on pred"
+  [pred coll]
+  (let [grouped (group-by pred coll)]
+    [(get grouped true) (get grouped false)]))
+
 (defn map-filter
   "Applies f to coll. Returns a lazy sequence of the items in coll for which
    all the results that are truthy. f must be free of side-effects."
   [f coll]
   (remove nullish? (map f coll)))
 
-;;; Formerly deselect
 (defn clean-map
-  "Remove values from 'map' based on 'pred' (default is `nullish?`). "
+  "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
   ([map] (clean-map map nullish?))
   ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
 
@@ -203,25 +219,15 @@
   ([struct pred] 
    (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
 
+(defn something [pred seq]
+  "Like some, but returns the original value of the seq rather than the result of the predicate."
+  (some #(and (pred %) %) seq))
 
-(defn cl-find
-  [val sequence & {xkey :key, xtest :test, :or {xkey identity, xtest =}}]
-  (apply (some-fn #(and (xtest (xkey %) val) %)) sequence))
-
-(defn iterate-until [f start pred]
-  (if (pred start)
-    start
-    (iterate-until f (f start) pred)))
-
-(defn position
-  [elt coll]
-  (first
-   (keep-indexed (fn [idx x]
-                   (when (= x elt) idx))
-                 coll)))
-
-(defn remove-elt [coll elt]
-  (remove #(= % elt) coll))
+;;; TODO better name for this! Now that it has a much cleaner implementation.
+(defn repeat-until
+  "Iterate f on start until a value is produced that is pred"
+  [pred f start]
+  (something pred (iterate f start)))
 
 (defn safe-nth
   [col n]
@@ -249,7 +255,8 @@
   (letfn [(step [xs seen]
             (cond (empty? xs) xs
                   (contains? seen (key-fn (first xs)))
-                  (let [new-elt (iterate-until new-key-fn (first xs) #(not (contains? seen (key-fn %))))]
+                  (let [new-elt (repeat-until #(not (contains? seen (key-fn %)))
+                                              new-key-fn (first xs))]
                     (cons new-elt
                           (step (rest xs) (conj seen (key-fn new-elt)))))
                   true
@@ -462,7 +469,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 ;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn powerset
-  "Compute powerset of a set"
+  "Compute the powerset of a set"
   [s]
   (if (empty? s) #{#{}}
       (let [elt (set (list (first s)))
@@ -486,29 +493,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
           (recur (set/union done (set (list expanded)))
                  (concat new (rest fringe))))))))
 
-;;; Obsoleted by vectorize, more or less
-(defn *ify
-  "f is a 1-arg fn on a scalar, returns a fn that will apply f either a scalar or a sequence"
-  [f]
-  (fn [arg]
-    (if (seq? arg)
-      (map f arg)
-      (f arg))))
+;;; Vectorized fns 
 
-(defn *ify!
-  "f is a 1-arg fn on a scalar, returns a fn that will apply f either a scalar or a sequence (non-lazily)"
-  [f]
-  (fn [arg]
-    (if (seq? arg)
-      (doall (map f arg))
-      (f arg))))
-
-;;; Vectorized fns (after SciCL)
-
-;;; Given a fn f with scalar args, (vectorized f) is a fn that takes either scalars or vectors for any argument,
-;;; doing the appropriate vectorization.
-;;; All vector args should be the same length.
 (defn vectorize
+  "Given a fn f with scalar args, (vectorized f) is a fn that takes either scalars or vectors for any argument,
+  doing the appropriate vectorization. All vector args should be the same length."
   [f]
   (fn [& args]
     (if-let [l (some #(and (sequential? %) (count %)) args)]
@@ -518,31 +507,22 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
              (range l)))
       (apply f args))))
 
-;;; Eg this yields [20 400 6000]
-#_ ((vectorize *) [1 2 3] 2 [10 100 1000])
-
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; (things that are more for stats or geometry moved to org.parkerici.multitool.math)
+;;; (things that are more for stats or geometry are in org.parkerici.multitool.math)
 
-(defn rand-range [a b]
+(defn rand-range
+  "Return a random float between a and b"
+  [a b]
   (+ a (* (rand) (- b a))))
 
-(defn rand-around [p range]
+(defn rand-around
+  "Return a random float within range of p"
+  [p range]
   (rand-range (- p range) (+ p range)))
 
-(defn safe-round [n]
+(defn round
+  "Round the argument"
+  [n]
   (if (int? n) n (Math/round n)))
-
-;;; ⩇⩆⩇ Keyword gensym ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
-
-(def key-counter (atom {}))
-
-(defn unique-key
-  "Produce a unique keyword based on root."
-  [root]
-  (swap! key-counter update root #(inc (or % 0)))
-  (keyword (namespace root)
-           (str (name root) (get @key-counter root))))
-
 

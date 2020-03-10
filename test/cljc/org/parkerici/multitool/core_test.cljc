@@ -3,16 +3,9 @@
   (:use org.parkerici.multitool.core)
   (:require [clojure.string :as str]))
 
-(deftest cl-find-test
-  (is (= 3 (cl-find 3 '(1 2 3 4))))
-  (testing ":key arg"
-    (is (= 4 (cl-find 2 '(1 2 3 4) :key (fn [x] (/ x 2))))))
-  (testing ":test arg"
-    (is (=  "zabars" (cl-find "bar" '("joe" "went" "to" "zabars") :test (fn [a b] (.contains a b)))))))
-
 (deftest underscore->camelcase-test
-  (is (= (underscore->camelcase "foo") "Foo"))
-  (is (= (underscore->camelcase "foo_bar") "FooBar")))
+  (is (= (underscore->camelcase "foo") "foo"))
+  (is (= (underscore->camelcase "foo_bar") "fooBar")))
 
 (deftest map-invert-multiple-test
   (is (= {} (map-invert-multiple {})))
@@ -26,9 +19,19 @@
     (= (map f (range 100))
        (map-chunked #(map f %) 7 (range 100)))))
       
+(deftest something-test
+  (is (= 2 (something even? '(1 2 3 4)))))
+
+(deftest repeat-until-test
+  (is (= 16 (repeat-until #(> % 10) #(* % 2) 1))))
+
 (deftest positions-test
   (is (= '(0 2 4 6 8) (positions even? '(0 1 2 3 4 3 2 1 0))))
   (is (= '(3 5) (positions= 3 '(0 1 2 3 4 3 2 1 0)))))
+
+(deftest position-test
+  (is 1 (position even? '(1 2 3 4 3 2 1 0)))
+  (is (= 3 (position= 3 '(0 1 2 3 4 3 2 1 0)))))
 
 (deftest powerset-test
   (is (= #{#{} #{3} #{2} #{1} #{1 3 2} #{1 3} #{1 2} #{3 2}}
@@ -41,6 +44,20 @@
   (testing "works on decent sized list"
     (= (Math/round (Math/pow 2 18))
        (count (powerset (range 18))))))
+
+(deftest transitive-closure-test
+  (let [tree [:organisms
+              [:plants [:trees] [:cacti]]
+              [:animals
+               [:mammals [:elephants] [:cats]]
+               [:birds [:terns] [:warblers] [:owls]]]]
+        children #(subvec % 1)
+        descendents (transitive-closure children)]
+    (is (= (set (map first (children tree)))
+           #{:plants :animals}))
+    (is (= (set (map first (descendents tree)))
+           #{:terns :cats :birds :elephants :plants :warblers :owls
+             :trees :animals :organisms :mammals :cacti}))))
 
 (deftest compare-tests
   (is (>* 2 1))
@@ -97,3 +114,11 @@
   (let [ed (error-handling-fn /)]
     (is (= '(true 2/3) (ed 2 3)))
     (is (= '(false "Caught exception: java.lang.ArithmeticException: Divide by zero") (ed 2 0)))))
+
+(deftest vectorize-test
+  (let [+* (vectorize +)]
+    (is (= (+* 1 2 3) 6))
+    (is (= (+* 1 [4 5 6] 3)
+           [8 9 10]))
+    (is (= (+* [10 20 30] [1 2 3])
+           [11 22 33]))))
