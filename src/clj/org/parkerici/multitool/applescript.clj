@@ -1,6 +1,6 @@
 (ns org.parkerici.multitool.applescript
-  [:require [clojure.string :as str]
-   [clojure.java.shell :as shell]])
+  (:require [clojure.string :as str]
+            [clojure.java.shell :as shell]))
 
 ;;; Interface to AppleScript (OS X only, of course)
 
@@ -46,16 +46,16 @@
 (defmulti details (fn [app] app))
 
 (defmethod details :default
-  [app]
+  [_]
   nil)
 
 (defmethod details "Google Chrome"
-  [app]
+  [_]
   {:url (exec-app "Google Chrome" "get URL of active tab of first window")
    :title (exec-app "Google Chrome" "get title of active tab of first window")})
 
 (defmethod details "Safari"
-  [app]
+  [_]
   {:url (exec-app "Safari" "return url of front document")
    :title (exec-app "Safari" "return name of front document")})
 

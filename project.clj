@@ -8,8 +8,7 @@
               :sign-releases false
               :username :env/github_user
               :password :env/github_password}]]
-  :dependencies [[org.clojure/clojure "1.10.1"]
-                 [org.clojure/clojurescript "1.10.520"]]
+  :dependencies [[org.clojure/clojure "1.10.1"]]
   :source-paths ["src/cljc" "src/clj"] 
   :test-paths ["test/cljc" "test/clj"]
   )

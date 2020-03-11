@@ -24,3 +24,11 @@
       (let [j (rand-int 1000000)]
         (is (= j (apply * (prime-factors j))))))))
 
+(deftest radian-degree-test
+  (is (= 180.0 (r2d Math/PI)))
+  (is (= (/ Math/PI 2) (d2r 90))))
+
+(deftest mean-test
+  (is (= 5 (mean (range 11)))))
+
+

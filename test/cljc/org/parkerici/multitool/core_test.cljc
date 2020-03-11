@@ -30,10 +30,11 @@
   (is (= '(3 5) (positions= 3 '(0 1 2 3 4 3 2 1 0)))))
 
 (deftest position-test
-  (is 1 (position even? '(1 2 3 4 3 2 1 0)))
+  (is (= 1 (position even? '(1 2 3 4 3 2 1 0))))
   (is (= 3 (position= 3 '(0 1 2 3 4 3 2 1 0)))))
 
 (deftest powerset-test
+
   (is (= #{#{} #{3} #{2} #{1} #{1 3 2} #{1 3} #{1 2} #{3 2}}
          (powerset #{1 2 3})))
   (testing "works on empty set"
@@ -42,8 +43,8 @@
     (is (= '#{#{a} #{c b} #{a b} #{} #{b} #{c} #{a c} #{a c b}}
            (powerset '(a b c)))))
   (testing "works on decent sized list"
-    (= (Math/round (Math/pow 2 18))
-       (count (powerset (range 18))))))
+    (is (= (Math/round (Math/pow 2 18))
+           (count (powerset (range 18)))))))
 
 (deftest transitive-closure-test
   (let [tree [:organisms
@@ -124,3 +125,10 @@
            [8 9 10]))
     (is (= (+* [10 20 30] [1 2 3])
            [11 22 33]))))
+
+(deftest for*-test
+  (is (= '([1 a] [2 b] [3 c])
+         (for* [a '(1 2 3)
+                b '(a b c)]
+               [a b]))))
+        
