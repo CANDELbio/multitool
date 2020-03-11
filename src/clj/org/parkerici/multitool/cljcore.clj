@@ -1,7 +1,6 @@
 (ns org.parkerici.multitool.cljcore
   "Java-only stuff"
   (:require
-   clojure.java.shell
    [clojure.string :as str]
    [clojure.pprint :as pprint]
    [clojure.java.io :as io]
@@ -148,7 +147,7 @@
         (format "%1.3gM" (/ n 1e6))
         (>= n 1e3)
         (format "%1.3gk" (/ n 1e3))
-        true
+        :else
         (str n)
         ))
 

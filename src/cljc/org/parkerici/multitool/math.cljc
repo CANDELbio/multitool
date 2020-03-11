@@ -42,7 +42,7 @@
     (cond (= nn 1) acc
           (zero? (mod nn prime))
           (recur (/ nn prime) primes (cons prime acc))
-          true
+          :else
           (recur nn rest-primes acc))))
 
 ;;; ⩇⩆⩇ Geometry ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -56,10 +56,14 @@
                               (Math/pow (- v0 v1) 2))
                             p0 p1)))))
 
-(defn r2d [r]
+(defn r2d
+  "Convert radians to degrees"
+  [r]
   (* r (/ 180 Math/PI)))
 
-(defn d2r [d]
+(defn d2r
+  "Convert radians to degrees"
+  [d]
   (* d (/ Math/PI 180)))
 
 ;;; ⩇⩆⩇ Naive statistics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -101,8 +105,12 @@
   "Return elements of `seq` on whom `scorefn` is more than `factor` standard-deviations away from the mean."
   [scorefn seq factor]
   (let [scores (map scorefn seq)
-        threshold (+ (mean scores) (* factor (standard-deviation scores)))]
-    (filter identity (map (fn [elt score] (when (>= score threshold) elt)) seq scores))))
+        mean (double (mean scores))
+        threshold (* factor (standard-deviation scores))]
+    (remove nil? (map (fn [elt score]
+                        (when (> (Math/abs (- score mean)) threshold)
+                          elt))
+                      seq scores))))
 
 (defn iles
   "Return the boundaries of deciles (n-iles) of seq"

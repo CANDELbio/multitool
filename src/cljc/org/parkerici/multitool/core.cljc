@@ -226,8 +226,9 @@
   ([struct pred] 
    (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
 
-(defn something [pred seq]
+(defn something
   "Like some, but returns the original value of the seq rather than the result of the predicate."
+  [pred seq]
   (some #(and (pred %) %) seq))
 
 ;;; TODO better name for this! Now that it has a much cleaner implementation.
@@ -266,7 +267,7 @@
                                               new-key-fn (first xs))]
                     (cons new-elt
                           (step (rest xs) (conj seen (key-fn new-elt)))))
-                  true
+                  :else
                   (cons (first xs)
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
@@ -288,7 +289,7 @@
    (cond
      (empty? seq) []
      (f seq) (cons seq (filter-rest f (rest seq)))
-     true (filter-rest f (rest seq)))))
+     :else (filter-rest f (rest seq)))))
 
 ;;; TODO use transients as in group-by
 (defn group-by-multiple
@@ -368,8 +369,7 @@
   [bindings & body]
   (let [bindings (partition 2 bindings)
         vars (map first bindings)
-        forms (map second bindings)
-        lvars (map gensym vars)]
+        forms (map second bindings)]
     `(map (fn ~(into [] vars) ~@body) ~@forms)))
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -382,7 +382,7 @@
         (nil? m2) m1
         (= m1 m2) m1
         ;; TODO? might want a version that combined these into a vector or something similar
-        true (throw (ex-info (str "Can't merge " m1 " and " m2) {}))))
+        :else (throw (ex-info (str "Can't merge " m1 " and " m2) {}))))
 
 (defn map-keys [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
@@ -446,8 +446,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 (defn subst
   "Walk `struct`, replacing any keys in map with corresponding value."
-  [struct map]
-  (walk/postwalk #(if (contains? map %) (map %) %) struct))
+  [struct vmap]
+  (walk/postwalk #(if (contains? vmap %) (vmap %) %) struct))
 
 (defn subst-gen
   "Like `subst`, but for entries not in map, call `generator` on first occurance to generate a value"
