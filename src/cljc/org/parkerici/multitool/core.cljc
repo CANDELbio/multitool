@@ -488,6 +488,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Functional ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn invert
+  "For use with ->. Produce a 2-arg fn that takes its args in the opposite order."
+  [f]
+  (fn [a b] (f b a)))
+
 (defn transitive-closure 
   "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure."
   [f]
@@ -535,3 +540,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [n]
   (if (int? n) n (Math/round n)))
 
+(defn hex-string
+  "Output number as hex string"
+  [n]
+  #?(:clj (format "%x" n)
+     :cljs (.toString n 16)))

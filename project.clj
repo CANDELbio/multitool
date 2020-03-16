@@ -1,4 +1,4 @@
-(defproject org.parkerici/multitool "0.0.1"
+(defproject org.parkerici/multitool "0.0.2"
   :description "PICI utility library"
   :url "http://github.com/ParkerICI/multitool"
   :license {:name "Eclipse Public License"
@@ -9,6 +9,6 @@
               :username :env/github_user
               :password :env/github_password}]]
   :dependencies [[org.clojure/clojure "1.10.1"]]
-  :source-paths ["src/cljc" "src/clj"] 
-  :test-paths ["test/cljc" "test/clj"]
+  :source-paths ["src/cljc" "src/clj" "src/cljs"] 
+  :test-paths ["test/cljc" "test/clj"]  ;TODO cljs testing
   )
