@@ -14,3 +14,7 @@ A collection of handy Clojure utilities and language extensions.
  Simple math and statistics fns
  - `nlp.cljc`
  simple string tokenization
+
+# See also
+
+https://github.com/weavejester/medley

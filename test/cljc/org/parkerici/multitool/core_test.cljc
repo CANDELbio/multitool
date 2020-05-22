@@ -132,3 +132,11 @@
                 b '(a b c)]
                [a b]))))
         
+(deftest re-substitute-test
+  ;; Italicize all words that contain "oo"
+  (is (= '("I like " [:i "food"] " and " [:i "goofing"] " on " [:i "woo"] ".")
+         (re-substitute #"\w*oo\w*" "I like food and goofing on woo." (fn [ss] [:i ss])))))
+
+(deftest index-by-test
+  (= '{a [a 1], b [b 2], c [c 3]}
+     (index-by first '[[a 1] [b 2] [c 3]])))
