@@ -56,18 +56,18 @@
     (number? thing) thing
     (nil? thing) nil
     (string? thing)
-    (if-let [inum (re-matches #"-?\d+" str)]
+    (if-let [inum (re-matches #"-?\d+" thing)]
       (try
         #?(:cljs (js/parseInt inum)
            :clj (Long. inum))
-        (catch #?(:clj Throwable :cljs :default)  _ str))
-      (if-let [fnum (re-matches #"-?\d*\.?\d*" str)]
+        (catch #?(:clj Throwable :cljs :default)  _ thing))
+      (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
         (try
           #?(:cljs (js/parseFloat fnum)
              :clj (Double. fnum))
-          (catch #?(:clj Throwable :cljs :default) _ str))
-        str))
-    true (throw (ex-info (format "Can't coerce %s into a number" thing)))))
+          (catch #?(:clj Throwable :cljs :default) _ thing))
+        thing))
+    true (throw (ex-info "Can't coerce into a number" {:thing thing}))))
 
 (defn coerce-boolean
   "Coerce a value (eg a string from a web API) into a boolean"

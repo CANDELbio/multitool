@@ -138,5 +138,11 @@
          (re-substitute #"\w*oo\w*" "I like food and goofing on woo." (fn [ss] [:i ss])))))
 
 (deftest index-by-test
-  (= '{a [a 1], b [b 2], c [c 3]}
-     (index-by first '[[a 1] [b 2] [c 3]])))
+  (is (= '{a [a 1], b [b 2], c [c 3]}
+         (index-by first '[[a 1] [b 2] [c 3]]))))
+
+(deftest coerce-numeric-test
+  (is (nil? (coerce-numeric nil)))
+  (is (= 23 (coerce-numeric 23)))
+  (is (= 23 (coerce-numeric "23")))
+  (is (= "foo" (coerce-numeric "foo"))))
