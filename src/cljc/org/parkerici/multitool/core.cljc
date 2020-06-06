@@ -1,5 +1,5 @@
 (ns org.parkerici.multitool.core
-  "Various generally useful utilities to keep mt sane"
+  "Various generally useful utilities"
   (:require
    [clojure.string :as str]
    [clojure.set :as set]
@@ -34,7 +34,7 @@
   "Execute `body`, if an exception occurs, print a message and continue"
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e# (warn (str "Ignored error: " (.getMessage e#))))))
+        (catch #?(:clj Throwable :cljs :default) e# (println (str "Ignored error: " (.getMessage e#))))))
 
 (defn error-handling-fn
   "Returns a fn that acts like f, but return value is (true result) or (false errmsg) in the case of an error"
@@ -49,21 +49,25 @@
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn coerce-numeric
-  "Attempt to turn str into a number (long or double).
+  "Attempt to turn thing into a number (long or double).
   Return number if succesful, otherwise original string"
-  [str]
-  (when str
-    (if-let [inum (re-matches #"-?\d+" str)]
+  [thing]
+  (cond
+    (number? thing) thing
+    (nil? thing) nil
+    (string? thing)
+    (if-let [inum (re-matches #"-?\d+" thing)]
       (try
         #?(:cljs (js/parseInt inum)
            :clj (Long. inum))
-        (catch #?(:clj Throwable :cljs :default)  _ str))
-      (if-let [fnum (re-matches #"-?\d*\.?\d*" str)]
+        (catch #?(:clj Throwable :cljs :default)  _ thing))
+      (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
         (try
           #?(:cljs (js/parseFloat fnum)
              :clj (Double. fnum))
-          (catch #?(:clj Throwable :cljs :default) _ str))
-        str))))
+          (catch #?(:clj Throwable :cljs :default) _ thing))
+        thing))
+    true (throw (ex-info "Can't coerce into a number" {:thing thing}))))
 
 (defn coerce-boolean
   "Coerce a value (eg a string from a web API) into a boolean"
@@ -72,14 +76,17 @@
     (= v "true")
     (not (nil? v))))
 
+;;; For more conversions like this, use https://clj-commons.org/camel-snake-kebab/
 (defn underscore->camelcase
   "Convert foo_bar into fooBar"
   [s]
   (let [parts (str/split s #"_")]
     (apply str (first parts) (map str/capitalize (rest parts)))))
 
-;;; TODO camelcase->underscore
-;;; Or, before this gets too elaborate, use https://clj-commons.org/camel-snake-kebab/
+(defn labelize
+  "Convert - and _ to spaces"
+  [s]
+  (str/replace (name s) #"[\_\-]" " "))
 
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -107,6 +114,24 @@
   [string]
   (re-pattern (re-quote string)))
 
+;;; TODO make a cljs version
+;;; Note: clojure.string/replace is very close to this, but it returns a string instead of fragments.
+#?(:clj 
+   (defn re-substitute
+     "Match re against s, apply subfn to matching substrings. Return list of fragments, processed and otherwise"
+     ([re s subfn]
+     (let [matcher (re-matcher re s)]
+       (loop [fragments ()
+              start 0]
+         (if (.find matcher)
+           (recur (cons (subfn (subs s (.start matcher) (.end matcher)))
+                        (cons (subs s start (.start matcher)) fragments))
+                  (.end matcher))
+           (reverse
+            (cons (subs s start) fragments))))))
+     ([re s]
+      (re-substitute re s identity))))
+
 (defn expand-template-string
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings"
   [template bindings]
@@ -116,7 +141,6 @@
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
-
 
 ;;; ⩇⩆⩇ Keywords and namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -134,6 +158,7 @@
   (keyword (namespace root)
            (str (name root) (get @key-counter root))))
 
+;;; see https://github.com/brandonbloom/backtick for possibly better solution
 (defn dens
   "Remove the namespaces that backquote insists on adding"
   [struct]
@@ -209,6 +234,11 @@
   (let [grouped (group-by pred coll)]
     [(get grouped true) (get grouped false)]))
 
+(defn pam
+  "Like map but takes its args in different order, useful for ->"
+  [seq f]
+  (map f seq))
+
 (defn map-filter
   "Applies f to coll. Returns a lazy sequence of the items in coll for which
    all the results that are truthy. f must be free of side-effects."
@@ -225,6 +255,13 @@
   ([struct] (clean-walk struct nullish?))
   ([struct pred] 
    (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
+
+(defn dissoc-walk
+  [struct & keys]
+  (walk/postwalk #(if (map? %)
+                    (apply dissoc % keys)
+                    %)
+                 struct))
 
 (defn something
   "Like some, but returns the original value of the seq rather than the result of the predicate."
@@ -255,9 +292,17 @@
                  xs seen)))]
     (step coll #{})))
 
+(defn unique-relative-to
+  "Generate a name based on s, that is not already found in existing."
+  [s existing suffix]
+  (if (get (set existing) s)
+    (unique-relative-to (str s suffix) existing suffix)
+    s))
+
 (defn uncollide
-  "new-key-fn is from elts to elts"
+  "Given a seq, return a new seq where the elements are guaranteed unique (relative to key-fn), using new-key-fn to generate new elements"
   [seq & {:keys [key-fn new-key-fn existing] :or {key-fn identity
+                                                  new-key-fn #(str % "-1")
                                                   existing #{}
                                                   }}]
   (letfn [(step [xs seen]
@@ -375,13 +420,14 @@
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; TODO? could work like regular merge and prefer m2 when unmergeable
+;;; TODO? might want a version that combined these into a vector or something similar
+;;; TODO should take arbitary # of args like merge
 (defn merge-recursive [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
         (nil? m1) m2
         (nil? m2) m1
         (= m1 m2) m1
-        ;; TODO? might want a version that combined these into a vector or something similar
         :else (throw (ex-info (str "Can't merge " m1 " and " m2) {}))))
 
 (defn map-keys [f hashmap]
@@ -390,15 +436,14 @@
 (defn map-values [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc k (f v))) {} hashmap))
 
-;;; See utilza.core/mapify
 (defn index-by 
+  "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
   [f coll]  
   (zipmap (map f coll) coll))
 
 (defn dissoc-if [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
 
-;;; Weirdly not in clojure.core
 (defn dissoc-in
   [map [k & k-rest]]
   (if k-rest
@@ -539,6 +584,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Round the argument"
   [n]
   (if (int? n) n (Math/round n)))
+
+(defn range-truncate
+  "Return the closest value to v within range [lower, upper]"
+  [v lower upper]
+  (and (number? v)
+       (max lower (min upper v))))
 
 (defn hex-string
   "Output number as hex string"

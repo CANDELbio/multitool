@@ -4,6 +4,7 @@
 
 ;;; ⩇⩆⩇ General ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; Doesn't work?
 (defn obj->clj
   "Convert random js object into a clj map"
   [obj]
@@ -13,6 +14,19 @@
             (if (= "function" (goog/typeOf v))
               result
               (assoc result key (obj->clj v)))))
+        (reduce {} (.getKeys goog/object obj)))
+    obj))
+
+;;; Nonrecursive version
+(defn obj->clj-nr
+  "Convert random js object into a clj map"
+  [obj]
+  (if (goog.isObject obj)
+    (-> (fn [result key]
+          (let [v (goog.object/get obj key)]
+            (if (= "function" (goog/typeOf v))
+              result
+              (assoc result key v))))
         (reduce {} (.getKeys goog/object obj)))
     obj))
 
