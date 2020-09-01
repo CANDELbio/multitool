@@ -18,3 +18,10 @@ A collection of handy Clojure utilities and language extensions.
 # See also
 
 https://github.com/weavejester/medley
+
+
+# To deploy to mvn-packages
+
+Bump version, and 
+
+    lein deploy github
