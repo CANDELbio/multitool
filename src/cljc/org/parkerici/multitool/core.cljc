@@ -55,7 +55,7 @@
   (cond
     (number? thing) thing
     (nil? thing) nil
-    (string? thing)
+    (and (string? thing) (not (empty? thing)))
     (if-let [inum (re-matches #"-?\d+" thing)]
       (try
         #?(:cljs (js/parseInt inum)
@@ -67,7 +67,7 @@
              :clj (Double. fnum))
           (catch #?(:clj Throwable :cljs :default) _ thing))
         thing))
-    true (throw (ex-info "Can't coerce into a number" {:thing thing}))))
+    true thing))
 
 (defn coerce-boolean
   "Coerce a value (eg a string from a web API) into a boolean"

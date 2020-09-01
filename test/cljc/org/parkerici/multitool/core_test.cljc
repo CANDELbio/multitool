@@ -145,4 +145,7 @@
   (is (nil? (coerce-numeric nil)))
   (is (= 23 (coerce-numeric 23)))
   (is (= 23 (coerce-numeric "23")))
-  (is (= "foo" (coerce-numeric "foo"))))
+  (is (= "foo" (coerce-numeric "foo")))
+  (is (= "" (coerce-numeric "")))
+  (is (= + (coerce-numeric +)))
+  )
