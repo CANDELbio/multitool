@@ -33,6 +33,10 @@
           (iterate #(+ % 2) 3)
           ))))
 
+;;; An infinite sequence of factorials
+(def factorials
+  (map * (rest (range)) (cons 1 (lazy-seq factorials))))
+
 (defn prime-factors
   "Prime factors of n (this is a slow and simpleminded method, not recommended for large n)"
   [n]
@@ -47,14 +51,23 @@
 
 ;;; ⩇⩆⩇ Geometry ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn distance
-  "Euclidean distance between points. Either 2D points supplied as separate arguments, or between 2  n-dimensional points with vector coordinates"
+(defn euclidean-distance
+  "Euclidean distance between points. Either 2D points supplied as separate arguments, or between 2 n-dimensional points with vector coordinates"
   ([x0 y0 x1 y1]
-   (Math/sqrt (+ (Math/pow (- x0 x1) 2) (Math/pow (- y0 y1) 2))))
+   (euclidean-distance [x0 y0] [x1 y1]))
   ([p0 p1]
-   (Math/sqrt (apply + (map (fn [v0 v1]
+   (Math/sqrt (reduce + (map (fn [v0 v1]
                               (Math/pow (- v0 v1) 2))
                             p0 p1)))))
+
+(defn manhattan-distance
+  "Manhattan distance between points. Either 2D points supplied as separate arguments, or between 2 n-dimensional points with vector coordinates"
+  ([x0 y0 x1 y1]
+   (manhattan-distance [x0 y0] [x1 y1]))
+  ([p0 p1]
+   (reduce + (map (fn [v0 v1]
+                   (Math/abs (- v0 v1)))
+                  p0 p1))))
 
 (defn r2d
   "Convert radians to degrees"
@@ -76,6 +89,15 @@
 
 (defn standard-deviation
   "Return standard deviation of the elements of `seq`"
+  [seq]
+  (let [mean0 (mean seq)]
+    (Math/sqrt
+     (/ (reduce + (map #(Math/pow (- % mean0) 2) seq))
+        (- (count seq) 1)))))
+
+;;; https://en.wikipedia.org/wiki/Bessel%27s_correction
+(defn standard-deviation-sample
+  "Return standard deviation with Bessel correction of the elements of `seq`"
   [seq]
   (let [mean0 (mean seq)]
     (Math/sqrt
