@@ -4,8 +4,8 @@
   (:require [clojure.string :as str]))
 
 (deftest underscore->camelcase-test
-  (is (= (underscore->camelcase "foo") "foo"))
-  (is (= (underscore->camelcase "foo_bar") "fooBar")))
+  (is (= (underscore->camelcase "foo_bar") "fooBar"))
+  (is (= (underscore->camelcase "foo") "foo")))
 
 (deftest map-invert-multiple-test
   (is (= {} (map-invert-multiple {})))
@@ -31,6 +31,7 @@
 
 (deftest position-test
   (is (= 1 (position even? '(1 2 3 4 3 2 1 0))))
+  (is (= nil (position string? '(1 2 3 4 3 2 1 0))))
   (is (= 3 (position= 3 '(0 1 2 3 4 3 2 1 0)))))
 
 (deftest powerset-test
@@ -145,4 +146,7 @@
   (is (nil? (coerce-numeric nil)))
   (is (= 23 (coerce-numeric 23)))
   (is (= 23 (coerce-numeric "23")))
-  (is (= "foo" (coerce-numeric "foo"))))
+  (is (= "foo" (coerce-numeric "foo")))
+  (is (= "" (coerce-numeric "")))
+  (is (= + (coerce-numeric +)))
+  )
