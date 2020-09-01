@@ -361,7 +361,7 @@
 
 (defn lunion "Compute the union of `lists`"
   [& lists]
-  (apply set/union lists))      ;set fn works here, but not for other cases
+  (apply set/union (map set lists)))
 
 (defn lintersection "Compute the intersection of `lists`"
   [& lists]
