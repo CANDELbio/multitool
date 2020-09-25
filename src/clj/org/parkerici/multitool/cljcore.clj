@@ -201,7 +201,7 @@
 (defn now []
   (java.util.Date.))
 
-(defn schpit 
+(defn schpit
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
   (with-open [w (apply clojure.java.io/writer f options)]
@@ -209,7 +209,7 @@
               *out* w]
       (prn content))))
 
-(defn schppit 
+(defn schppit
   "Like schpit but will prettyprint."
   [f content & options]
   (with-open [w (apply clojure.java.io/writer f options)]
@@ -223,4 +223,24 @@
     (.read reader a)
     (String. a)))
 
+;;; ⩇⩆⩇ String Parsing ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn parse-boolean-or-nil
+  [value]
+  (if (nil? value) nil (Boolean/valueOf value)))
+
+(defn parse-long-or-nil
+  [value]
+  (if (nil? value) nil (Long/parseLong value)))
+
+;;; ⩇⩆⩇ Path manipulation ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn split-path
+  "Splits a path delimited with /"
+  [path]
+  (remove empty? (str/split path #"/")))
+
+(defn join-path
+  "Joins the elements passed in into a path"
+  [& args]
+  (str "/" (str/join "/" (flatten (map #(split %) (remove empty? args))))))
