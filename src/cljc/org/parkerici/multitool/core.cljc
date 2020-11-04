@@ -69,6 +69,12 @@
         thing))
     true thing))
 
+(defn coerce-numeric-hard
+  "Coerce thing to a number if possible, otherwise return nil"
+  [thing]
+  (let [n (coerce-numeric thing)]
+    (and (number? n) n)))
+
 (defn coerce-boolean
   "Coerce a value (eg a string from a web API) into a boolean"
   [v]
@@ -132,15 +138,26 @@
      ([re s]
       (re-substitute re s identity))))
 
+(def template-regex #"\{(.*?)\}")       ;extract the template fields from the entity
+
 (defn expand-template-string
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings"
   [template bindings]
-  (let [matches (->> (re-seq #"\{(.*?)\}" template) ;extract the template fields from the entity
+  (let [matches (->> (re-seq template-regex template) 
                      (map (fn [[match key]]
                             [match (or (bindings key) "")])))]
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
+
+(defn validate-template
+  "Validate a template, defined as in expand-template-string; fields is a set of allowed field names"
+  [template fields]
+  (let [vars (map second (re-seq template-regex template))]
+    (assert (not (empty? vars)) "Template has no {fields}")
+    (doseq [var vars]
+      (assert (contains? fields var)
+              (format "Template var {%s} is not in sheet" var)))))
 
 ;;; Stolen from clj-glob, where it is internal 
 (defn glob->regex
@@ -360,16 +377,7 @@
      (f seq) (cons seq (filter-rest f (rest seq)))
      :else (filter-rest f (rest seq)))))
 
-;;; TODO use transients as in group-by
-(defn group-by-multiple
-  "Like group-by, but f produces a seq of values rather than a single one"
-  [f coll]  
-  (reduce
-   (fn [ret x]
-     (reduce (fn [ret y]
-               (assoc ret y (conj (get ret y []) x)))
-             ret (f x)))
-   {} coll))
+
 
 (defn max-by "Find the maximim element of `seq` based on keyfn"
   [keyfn seq]
@@ -464,6 +472,29 @@
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
   [f coll]  
   (zipmap (map f coll) coll))
+
+(defn index-by-and-transform
+  "Return a map of the elements of coll indexed by (f elt) and transformed by (g elt). "
+  [f g coll]  
+  (zipmap (map f coll) (map g coll)))
+
+;;; TODO use transients as in group-by
+(defn group-by-multiple
+  "Like group-by, but f produces a seq of values rather than a single one"
+  [f coll]  
+  (reduce
+   (fn [ret x]
+     (reduce (fn [ret y]
+               (assoc ret y (conj (get ret y []) x)))
+             ret (f x)))
+   {} coll))
+
+(defn group-by-and-transform
+  "Like group-by, but the values of the resultant map have f mapped over them"
+  [by f results]
+  (map-values
+   #(map f %)
+   (group-by by results)))
 
 (defn dissoc-if [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
