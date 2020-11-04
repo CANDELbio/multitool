@@ -18,7 +18,7 @@
     `(def ~name (memoize (fn ~args ~@body)))))
 
 (defmacro def-lazy
-  "Like `def` but will delay computing value until it is demanded."
+  "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
   [var & body]
   `(def ~var (delay ~@body)))
 
@@ -141,6 +141,30 @@
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
+
+;;; Stolen from clj-glob, where it is internal 
+(defn glob->regex
+  "Takes a glob-format string and returns a regex."
+  [s]
+  (loop [stream s
+         re ""
+         curly-depth 0]
+    (let [[c j] stream]
+        (cond
+         (nil? c) (re-pattern (str (if (= \. (first s)) "" "(?=[^\\.])") re))
+         (= c \\) (recur (nnext stream) (str re c c) curly-depth)
+         (= c \/) (recur (next stream) (str re (if (= \. j) c "/(?=[^\\.])"))
+                         curly-depth)
+         (= c \*) (recur (next stream) (str re "[^/]*") curly-depth)
+         (= c \?) (recur (next stream) (str re "[^/]") curly-depth)
+         (= c \{) (recur (next stream) (str re \() (inc curly-depth))
+         (= c \}) (recur (next stream) (str re \)) (dec curly-depth))
+         (and (= c \,) (< 0 curly-depth)) (recur (next stream) (str re \|)
+                                                 curly-depth)
+         (#{\. \( \) \| \+ \^ \$ \@ \%} c) (recur (next stream) (str re \\ c)
+                                                  curly-depth)
+         :else (recur (next stream) (str re c) curly-depth)))))
+
 
 ;;; ⩇⩆⩇ Keywords and namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -467,6 +491,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
           {}
           m)))
 
+;;; See also clojure.data/diff
 (defn map-diff
   "Returns a recursive diff of two maps, which you will want to prettyprint."
   [a b]

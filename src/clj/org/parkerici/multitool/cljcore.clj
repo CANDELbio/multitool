@@ -5,8 +5,8 @@
    [clojure.pprint :as pprint]
    [clojure.java.io :as io]
    [clojure.java.shell :as shell]
-   [org.parkerici.multitool.core :as core]
-  ))
+   [org.parkerici.multitool.core :as core])
+  (:import [java.util Base64]))
 
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -243,4 +243,13 @@
 (defn join-path
   "Joins the elements passed in into a path"
   [& args]
-  (str "/" (str/join "/" (flatten (map #(split %) (remove empty? args))))))
+  (str "/" (str/join "/" (flatten (map #(str/split %) (remove empty? args))))))
+
+(defn base64-encode
+  [string]
+  (.encodeToString (Base64/getEncoder) (.getBytes string)))
+
+(defn base64-decode
+  [b64-string]
+  (String. (.decode (Base64/getDecoder) (.getBytes b64-string))))
+  
