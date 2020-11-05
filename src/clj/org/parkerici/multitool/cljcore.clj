@@ -245,7 +245,7 @@
 (defn join-path
   "Joins the elements passed in into a path"
   [& args]
-  (str "/" (str/join "/" (flatten (map #(str/split %) (remove empty? args))))))
+  (str "/" (str/join "/" (flatten (map #(split-path %) (remove empty? args))))))
 
 (defn base64-encode
   [^String string]
