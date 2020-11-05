@@ -6,7 +6,13 @@
    [clojure.java.io :as io]
    [clojure.java.shell :as shell]
    [org.parkerici.multitool.core :as core])
-  (:import [java.util Base64]))
+  (:import [java.util Base64 Date UUID]
+           [java.io File Reader PushbackReader]
+           [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]
+           [java.net URL URI]
+           [java.text SimpleDateFormat]
+           [java.awt Desktop]))
 
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -39,7 +45,7 @@
 
 (defn content-files
   [dir & regex]
-  (filter #(and (not (.isDirectory %))
+  (filter #(and (not (.isDirectory ^File %))
                 (or (empty? regex) (re-find (first regex) (str %))))
           (file-seq (io/file dir))))
 
@@ -51,7 +57,7 @@
 (defn file-delete-recursively
   "Delete a directory and its contents"
   [fname]
-  (letfn [(del1 [f]
+  (letfn [(del1 [^File f]
             (when (.isDirectory f)
               (doseq [f2 (.listFiles f)]
                 (del1 f2)))
@@ -66,36 +72,37 @@
 
 ;;; http://stackoverflow.com/questions/840190/changing-the-current-working-directory-in-java
 (defn cd "As in Unix shell cd"
-  [dirname]
-  (let [dir (.getAbsoluteFile (java.io.File. dirname))]
+  [^String dirname]
+  (let [dir (.getAbsoluteFile (File. dirname))]
     (System/setProperty "user.dir" (.getAbsolutePath dir))
     dir))
 
-(defn temp-file []
-  (java.io.File/createTempFile "temp" ""))
+(defn ^File temp-file []
+  (File/createTempFile "temp" ""))
 
 (defn temp-file-path []
-  (.getPath (temp-file)))
+  (.getPath ^File (temp-file)))
 
 (defn temp-dir-path []
-  (str (java.nio.file.Files/createTempDirectory "temp" (into-array java.nio.file.attribute.FileAttribute [] ))))
+  (str (Files/createTempDirectory "temp" (into-array FileAttribute [] ))))
 
 (defn directory-files [d filterfn]
-  (filter #(and (not (.isDirectory %))
-                (.exists %)
-                (filterfn (.getName %)))
+  (filter (fn [^File f]
+            (and (not (.isDirectory f))
+                (.exists f)
+                (filterfn (.getName f))))
           (file-seq (io/file d))))
 
 (defn ensure-directory
   "Create directory if it doesn't exist (recursively)"
   [d]
-  (let [f (java.io.File. d)]
+  (let [^File f (File. d)]
     (when-not (.exists f)
       (.mkdirs f))))
 
 
 (defn local-file [url]
-  (let [url (java.net.URL. url)
+  (let [url (URL. url)
         tmp (temp-file)]
     (io/copy (.openStream url) tmp)
     (.getPath tmp)))
@@ -120,15 +127,18 @@
   (let [rdr (-> file
                 io/file
                 io/reader
-                java.io.PushbackReader.)]
+                PushbackReader.)]
     (read rdr)))
 
 ;;; ⩇⩆⩇ Date/time ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; For more serious use, see clj-time https://github.com/clj-time/clj-time
 
+(defn now []
+  (Date.))
+
 (core/defn-memoized date-formatter [f]
-  (java.text.SimpleDateFormat. f))
+  (SimpleDateFormat. f))
 
 ; "yy-MM-dd kk:mm"
 ; "YYYY-MM-dd_HH_MM_SS")
@@ -136,7 +146,7 @@
   (.format (date-formatter format) date))
 
 (defn date+ [date days hours minutes]
-  (java.util.Date. (+ (.getTime date) (* 60 1000 (+ minutes (* 60 (+ hours (* 24 days))))))))
+  (Date. (+ (.getTime date) (* 60 1000 (+ minutes (* 60 (+ hours (* 24 days))))))))
 
 ;;; ⩇⩆⩇ Output ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -174,37 +184,29 @@
 
 (defn open-url
   [url]
-  (when (java.awt.Desktop/isDesktopSupported)
-    (.browse (java.awt.Desktop/getDesktop)
-             (java.net.URI/create url))))
+  (when (Desktop/isDesktopSupported)
+    (.browse (Desktop/getDesktop)
+             (URI/create url))))
 
-;;; +++ must be a more standard form
-;;; TODO if actually useful, port to cljc
-(defn string-search
-  [string sub]
-  (let [pos (.indexOf string sub)]
-    (if (> pos 0)
-      pos
-      false)))
+;;; string-search removed, use str/index-of or str/includes?
 
 (defn string-search-all
-  [string sub & [start]]
-  (let [pos (.indexOf string sub (or start 0))]
+  "Return a sequence of all positions where sub is found in string"
+  [^String string ^String sub & [^long start]]
+  (let [start (or start 0)
+        pos (.indexOf string sub start)]
     (if (> pos 0)
       (cons pos (string-search-all string sub (+ 1 pos)))
       ())))
 
 (defn random-uuid
   []
-  (str (java.util.UUID/randomUUID)))
-
-(defn now []
-  (java.util.Date.))
+  (str (UUID/randomUUID)))
 
 (defn schpit
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
-  (with-open [w (apply clojure.java.io/writer f options)]
+  (with-open [w (apply io/writer f options)]
     (binding [*print-length* nil
               *out* w]
       (prn content))))
@@ -212,13 +214,13 @@
 (defn schppit
   "Like schpit but will prettyprint."
   [f content & options]
-  (with-open [w (apply clojure.java.io/writer f options)]
+  (with-open [w (apply io/writer f options)]
     (binding [*print-length* nil
               *out* w]
       (pprint/pprint content w))))
 
 (defn read-chars
-  [reader n]
+  [^Reader reader n]
   (let [a (char-array n)]
     (.read reader a)
     (String. a)))
@@ -226,11 +228,11 @@
 ;;; ⩇⩆⩇ String Parsing ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn parse-boolean-or-nil
-  [value]
+  [^String value]
   (if (nil? value) nil (Boolean/valueOf value)))
 
 (defn parse-long-or-nil
-  [value]
+  [^String value]
   (if (nil? value) nil (Long/parseLong value)))
 
 ;;; ⩇⩆⩇ Path manipulation ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -246,10 +248,10 @@
   (str "/" (str/join "/" (flatten (map #(str/split %) (remove empty? args))))))
 
 (defn base64-encode
-  [string]
+  [^String string]
   (.encodeToString (Base64/getEncoder) (.getBytes string)))
 
 (defn base64-decode
-  [b64-string]
+  [^String b64-string]
   (String. (.decode (Base64/getDecoder) (.getBytes b64-string))))
   
