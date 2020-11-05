@@ -157,7 +157,7 @@
     (assert (not (empty? vars)) "Template has no {fields}")
     (doseq [var vars]
       (assert (contains? fields var)
-              (format "Template var {%s} is not in sheet" var)))))
+              (str "Template var {" var "} is not in sheet")))))
 
 ;;; Stolen from clj-glob, where it is internal 
 (defn glob->regex
