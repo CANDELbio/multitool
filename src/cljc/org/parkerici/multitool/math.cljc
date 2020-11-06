@@ -81,6 +81,10 @@
 
 ;;; ⩇⩆⩇ Naive statistics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; These are for convenience / learning.
+;;; Use a real statistics package if you have anything serious to do.
+;;; eg: incanter.stats 
+
 (defn mean
   "Return the arithmetic mean of the elements of `seq`"
   [seq]
@@ -116,6 +120,20 @@
   (Math/pow (reduce * (map double seq))
             (/ 1 (count seq))))
 
+(defn covariance
+  "Return the covariance between seq1 and seq2, which should be of equal size"  
+  [seq1 seq2]
+  (let [m1 (mean seq1)
+        m2 (mean seq2)]
+    (/ (reduce + (map #(* (- m1 %1) (- m2 %2)) seq1 seq2))
+       (- (count seq1) 1))))
+
+(defn pearson-correlation-coefficient
+  "Return the correlation coefficient between seq1 and seq2, which should be of equal size. Value is in range [-1, 1]. "  
+  [seq1 seq2]
+  (/ (covariance seq1 seq2)
+     (* (standard-deviation seq1) (standard-deviation seq2))))
+
 (defn score-b
   "Return a list of [elt score] pairs, in descending score order."
   [keyfn seq]
@@ -137,8 +155,6 @@
 (defn iles
   "Return the boundaries of deciles (n-iles) of seq"
   [seq n]
-  (map first (partition n (sort seq))))
+  (map first (partition (/ (count seq) n) (sort seq))))
     
-
-
 
