@@ -9,8 +9,6 @@
   [x]
   `(let [x# ~x] (println "dbg:" '~x "=" x#) x#))
 
-;;; TODO there is something similar built into Clojure 1.10, tap>, maybe use that.
-
 (defn tapr "Print `thing` and  return it as value"
   [thing]
   (prn thing)

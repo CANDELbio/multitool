@@ -28,3 +28,9 @@ https://github.com/weavejester/medley
 Bump version, and 
 
     lein deploy github
+
+# To deply to Clojars
+
+    lein deploy clojars
+	
+You will need to supply credentials (user name and  authentication token).

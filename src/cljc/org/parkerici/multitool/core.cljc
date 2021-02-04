@@ -108,7 +108,7 @@
      :cljs
      (throw (ex-info "TODO" {}))))
 
-(defn- re-quote
+(defn re-quote
   [s]
   #?(:clj  
      (java.util.regex.Pattern/quote s)
@@ -216,6 +216,11 @@
   [v]
   (or (false? v) (nil? v) (and (seqable? v) (empty? v))))
 
+(defn or-nil
+  "Given a 1-arg pred, return a new fn that acts as identity if pred is true, nil otherwise"
+  [pred]
+  (fn [thing] (if (pred thing) thing nil)))
+
 (defn >*
   "Generalization of > to work on anything with a compare fn"
   ([a b]
@@ -276,7 +281,7 @@
     [(get grouped true) (get grouped false)]))
 
 (defn pam
-  "Like map but takes its args in different order, useful for ->"
+  "Like map but takes its args in inverse order, useful for ->"
   [seq f]
   (map f seq))
 
@@ -286,6 +291,7 @@
   [f coll]
   (remove nullish? (map f coll)))
 
+;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
 (defn clean-map
   "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
   ([map] (clean-map map nullish?))
@@ -404,10 +410,19 @@
   (seq (set/difference (set list1) (set list2))))
 
 
-
 ;;; partition-lossless
 ;;; Previously called take-groups
 ;;; and turns out to be subsumed by clojure.core/partition-all
+
+(defn partition-if
+  "Partition coll at every v for which (f v) is true"
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           fv (f fst)
+           run (cons fst (take-while #(not (f %)) (next s)))]
+       (cons run (partition-if f (lazy-seq (drop (count run) s))))))))
 
 (defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
@@ -496,7 +511,8 @@
    #(map f %)
    (group-by by results)))
 
-(defn dissoc-if [f hashmap]
+(defn dissoc-if
+  [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
 
 (defn dissoc-in
@@ -505,7 +521,8 @@
     (update map k dissoc-in k-rest)
     (dissoc map k)))
 
-(defn remove-nil-values [hashmap]
+(defn remove-nil-values
+  [hashmap]
   (dissoc-if (fn [[_ v]] (not v)) hashmap))
 
 (defn map-invert-multiple
@@ -563,18 +580,50 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                       (generate %))
                    struct)))
 
-;;; TODO avoid atom with a loop?
+(defn side-walk
+  "Traverses form, an arbitrary data structure, evaluating f on each element for side effects "
+  [f form]
+  (f form)
+  (cond
+    (coll? form) (doseq [elt form] (side-walk f elt))
+;clj    (instance? clojure.lang.IMapEntry form)
+    (map-entry? form)
+    (do (side-walk f (key form))
+        (side-walk f (val form)))))
+
+(defn side-reduce
+  "Traverses form with an accumulator. f is a function of [accumulator elt], init is initial val of accumulator"
+  [f form init]
+  (let [acc (atom init)]          ;typically acc should be transient, but since they need special mutators can't be done in a general way. See walk-collect below
+    (side-walk
+     (fn [elt]
+       (swap! acc f elt))
+     form)
+    @acc))
+
 (defn walk-collect
   "Walk f over thing and return a list of the non-nil returned values"
   [f thing]
-  (let [collector (atom [])]
-    (clojure.walk/postwalk
-     #(do
-        (when-let [v (f %)]
-          (swap! collector conj v))
-        %)
+  (persistent!
+   (side-reduce (fn [acc elt]
+                 (if-let [it (f elt)]
+                   (conj! acc it)
+                   acc))
+               thing
+               (transient []))))
+
+(defn walk-find
+  "Walk over thing and return the first val for which f is non-nil"
+  [f thing]
+  (try
+    (side-walk
+     (fn [thing]
+       (if (f thing)
+         (throw (ex-info "value" {:value thing}))))
      thing)
-    @collector))
+    nil
+    (catch clojure.lang.ExceptionInfo e
+      (:value (ex-data e)))))
 
 ;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

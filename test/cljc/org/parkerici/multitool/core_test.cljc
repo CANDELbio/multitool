@@ -150,3 +150,7 @@
   (is (= "" (coerce-numeric "")))
   (is (= + (coerce-numeric +)))
   )
+
+(deftest walk-collect-test
+  (is (= [1 2 3]
+         (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
