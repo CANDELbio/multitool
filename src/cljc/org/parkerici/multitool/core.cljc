@@ -409,7 +409,6 @@
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
 
-
 ;;; partition-lossless
 ;;; Previously called take-groups
 ;;; and turns out to be subsumed by clojure.core/partition-all
@@ -420,9 +419,18 @@
   (lazy-seq
    (when-let [s (seq coll)]
      (let [fst (first s)
-           fv (f fst)
            run (cons fst (take-while #(not (f %)) (next s)))]
        (cons run (partition-if f (lazy-seq (drop (count run) s))))))))
+
+(defn partition-diff
+  "Partition coll between v1 and v2 for which (f v1 v2) is true"
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [v1 (first s)
+           v2 (second s)
+           run (cons v1  (take-while #(not (f v1 v2)) (next s)))]
+       (cons run (partition-diff f (lazy-seq (drop (count run) s))))))))
 
 (defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
