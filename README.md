@@ -31,6 +31,8 @@ Bump version, and
 
 # To deply to Clojars
 
+From a real terminal (not Emacs)
+
     lein deploy clojars
 	
 You will need to supply credentials (user name and  authentication token).

@@ -556,10 +556,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
         b-only (set/difference (set (keys b)) both)
         slot-diffs
         (for [k both
-              :when (not (= (k a) (k b)))]
-          (if (and (map? (k a)) (map? (k b)))
-            [:slot-diff k (map-diff (k a) (k b))]
-            [:slot-diff k (k a) (k b)]))]
+              :let [av (get a k)
+                    bv (get b k)]
+              :when (not (= av bv))]
+          (if (and (map? av) (map? bv))
+            [:slot-diff k (map-diff av bv)]
+            [:slot-diff k av bv]))]
     [:a-only a-only :b-only b-only :slot-diffs slot-diffs]))
 
 (defn sort-map-by-values [m]

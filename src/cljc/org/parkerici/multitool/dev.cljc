@@ -20,6 +20,15 @@
   (swap! captures assoc tag thing)
   thing)
 
+#(:clj
+  (defn capture-to-file
+    "Capture standard output to file"
+    [thunk file]
+    (with-open [w (clojure.java.io/writer file)] 
+      (binding [*out* w]
+        (thunk))))
+  )
+
 ;;; TODO – implement equiv of CL mt/plet
 
 (defn pp [thing]
