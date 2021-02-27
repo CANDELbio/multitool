@@ -249,8 +249,8 @@
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
   "Remove occurences of elt in seq"
-  [elt seq]
-  (remove #(= % elt) seq))
+  [elt seq & [key-fn]]
+  (remove #(= ((or key-fn identity) %) elt) seq))
 
 (defn positions
   "Returns a list of indexes of coll for which pred is true"
@@ -266,13 +266,13 @@
 
 (defn positions=
   "Return list of indexes of coll that contain elt"
-  [elt coll]
-  (positions #(= % elt) coll))
+  [elt coll & [key-fn]]
+  (positions #(= ((or key-fn identity) %) elt) coll))
 
 (defn position=
   "Returns the first index of coll that contains elt"
-  [elt coll]
-  (first (positions= elt coll)))
+  [elt coll & [key-fn]]
+  (first (positions= elt coll (or key-fn identity))))
 
 (defn separate
   "Separate coll into two collections based on pred"
@@ -383,9 +383,7 @@
      (f seq) (cons seq (filter-rest f (rest seq)))
      :else (filter-rest f (rest seq)))))
 
-
-
-(defn max-by "Find the maximim element of `seq` based on keyfn"
+(defn max-by "Find the maximum element of `seq` based on keyfn"
   [keyfn seq]
   (when-not (empty? seq)
     (reduce (fn [a b] (if (>* (keyfn a) (keyfn b)) a b))
@@ -396,6 +394,10 @@
   (when-not (empty? seq)
     (reduce (fn [a b] (if (<* (keyfn a) (keyfn b)) a b))
             seq)))
+
+;;; Versions of min and max that use generalized compare (and take args in a seq)
+(def min* (partial min-by identity))
+(def max* (partial max-by identity))
 
 (defn lunion "Compute the union of `lists`"
   [& lists]
@@ -474,16 +476,15 @@
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; TODO? could work like regular merge and prefer m2 when unmergeable
-;;; TODO? might want a version that combined these into a vector or something similar
+;;; Note: changed in 0.0.12 to not error if unmergeable
 ;;; TODO should take arbitary # of args like merge
 (defn merge-recursive [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
-        (nil? m1) m2
+        (and (sequential? m1) (sequential? m2))
+        (map merge-recursive m1 m2)
         (nil? m2) m1
-        (= m1 m2) m1
-        :else (throw (ex-info (str "Can't merge " m1 " and " m2) {}))))
+        :else m2))
 
 (defn map-keys [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
@@ -495,6 +496,17 @@
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
   [f coll]  
   (zipmap (map f coll) coll))
+
+(defn index-by-ordered 
+  "Return an array map of the elements of coll indexed by (f elt), preserving the order. See index-by"
+  [f coll]  
+  (apply array-map
+         (mapcat (fn [elt] [(f elt) elt]) coll)))
+
+(defn union-by
+  "Return unique elements in (union s1 s2) given f as identity key"
+  [f s1 s2]
+  (set (vals (merge (index-by f s1) (index-by f s2)))))
 
 (defn index-by-and-transform
   "Return a map of the elements of coll indexed by (f elt) and transformed by (g elt). "
@@ -596,7 +608,6 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (f form)
   (cond
     (coll? form) (doseq [elt form] (side-walk f elt))
-;clj    (instance? clojure.lang.IMapEntry form)
     (map-entry? form)
     (do (side-walk f (key form))
         (side-walk f (val form)))))
@@ -648,6 +659,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Functional ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn safely
+  "Given f, produce new function that permits nulling."
+  [f]
+  (fn [x] (and x (f x))))
+
 (defn invert
   "For use with ->. Produce a 2-arg fn that takes its args in the opposite order."
   [f]
@@ -694,6 +710,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Return a random float within range of p"
   [p range]
   (rand-range (- p range) (+ p range)))
+
+(defn random-element
+  "Return a random element from a seq"
+  [l]
+  (nth l (rand-int (count l))))
 
 (defn round
   "Round the argument"

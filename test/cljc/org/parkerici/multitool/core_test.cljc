@@ -25,6 +25,10 @@
 (deftest repeat-until-test
   (is (= 16 (repeat-until #(> % 10) #(* % 2) 1))))
 
+(deftest remove=-test
+  (is (= '(0 1 3 4) (remove= 2 (range 5))))
+  (is (= '(0 2 3 4) (remove= 2 (range 5) #(* % 2)))))
+
 (deftest positions-test
   (is (= '(0 2 4 6 8) (positions even? '(0 1 2 3 4 3 2 1 0))))
   (is (= '(3 5) (positions= 3 '(0 1 2 3 4 3 2 1 0)))))
@@ -79,6 +83,11 @@
          (min-by count (tokens "this is a tediously long string"))))
   (is (nil? (max-by count [])))
   (is (nil? (min-by count []))))
+
+(deftest min*-max*-test
+  (let [words '("you" "call" "this" "living")]
+    (is (= "call" (min* words)))
+    (is (= "you" (max* words)))))
 
 (defn rcons [a b] (cons b a))
 
@@ -154,3 +163,22 @@
 (deftest walk-collect-test
   (is (= [1 2 3]
          (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
+
+(deftest merge-recursive-test
+  (is (= {:a 2} (merge-recursive {:a 1} {:a 2})))
+  (is (= 23 (merge-recursive {:a 1} 23)))
+  (is (= {:a {:x 1, :y 11, :z 22}} (merge-recursive {:a {:x 1 :y 2}} {:a {:y 11 :z 22}} )))
+  (is (= {:a {:x 1 :y 2}} (merge-recursive {:a {:x 1 :y 2}} {:a nil} ))))
+
+(deftest union-by-test
+  (let [words1 #{"this" "is" "kind" "of" "silly"}
+        words2 #{"dont" "you" "think"}
+        union (union-by count words1 words2)
+        union-counts (set (map count union))]
+    ;; the idea is union-by picks one word of each size; not well-defined which one it will be
+    (is (= #{2 3 5 4} union-counts))))
+    
+(deftest safely-test
+  (let [double-safe (safely double)]
+    (is (= 23.0 (double-safe 23)))
+    (is (nil? (double-safe nil)))))
