@@ -182,3 +182,20 @@
   (let [double-safe (safely double)]
     (is (= 23.0 (double-safe 23)))
     (is (nil? (double-safe nil)))))
+
+(deftest partition-if-test
+  (is (= '((0 1) (2 3) (4 5) (6 7) (8 9))
+         (partition-if even? (range 10))))
+  (is (= '()
+         (partition-if even? '())))
+  (is (= '((0))
+         (partition-if even? '(0))))
+  (is (= '((0 1) (2))
+         (partition-if even? (range 3)))))
+
+(deftest partition-diff-test
+  (let [x '(1 9 2 0 3 7 2 2 7 2 7 7 5 7 8 6 5 4 2 1)]
+    (is (= '((1 9) (2) (0 3 7) (2) (2 7) (2 7) (7) (5 7 8) (6) (5) (4) (2) (1))
+           (partition-diff < x)))
+    (is (= '((1) (9 2 0) (3) (7 2) (2) (7 2) (7) (7 5) (7) (8 6 5 4 2 1))
+           (partition-diff > x)))))

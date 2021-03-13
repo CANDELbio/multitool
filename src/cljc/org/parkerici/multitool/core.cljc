@@ -424,15 +424,25 @@
            run (cons fst (take-while #(not (f %)) (next s)))]
        (cons run (partition-if f (lazy-seq (drop (count run) s))))))))
 
+(defn rest-while
+  "Like take-while but applies pred to successive tails of the seq, and returns a seq of tails"
+  [pred coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (when (pred s)
+       (cons s (rest-while pred (rest s)))))))
+
 (defn partition-diff
-  "Partition coll between v1 and v2 for which (f v1 v2) is true"
+  "Partition coll between v1 and v2 at points for which (f v1 v2) is true"
   [f coll]
   (lazy-seq
    (when-let [s (seq coll)]
-     (let [v1 (first s)
-           v2 (second s)
-           run (cons v1  (take-while #(not (f v1 v2)) (next s)))]
-       (cons run (partition-diff f (lazy-seq (drop (count run) s))))))))
+     (let [run (rest-while #(and (> (count %) 1)
+                                 (f (first %) (second %)))
+                           s)
+           psize (+ 1 (count run))]
+       (cons (take psize s)
+             (partition-diff f (drop psize s)))))))
 
 (defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
@@ -478,11 +488,11 @@
 
 ;;; Note: changed in 0.0.12 to not error if unmergeable
 ;;; TODO should take arbitary # of args like merge
+;;; Had a version that tried to walk parallel sequences, but was not the right thing
+;;; Would be interesting to be able to supply a merge function for leafs (like union)
 (defn merge-recursive [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
-        (and (sequential? m1) (sequential? m2))
-        (map merge-recursive m1 m2)
         (nil? m2) m1
         :else m2))
 
@@ -603,7 +613,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                    struct)))
 
 (defn side-walk
-  "Traverses form, an arbitrary data structure, evaluating f on each element for side effects "
+  "Walks form, an arbitrary data structure, evaluating f on each element for side effects "
   [f form]
   (f form)
   (cond
@@ -612,8 +622,9 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     (do (side-walk f (key form))
         (side-walk f (val form)))))
 
-(defn side-reduce
-  "Traverses form with an accumulator. f is a function of [accumulator elt], init is initial val of accumulator"
+;;; Formerly side-reduce
+(defn walk-reduce
+  "Walks form with an accumulator. f is a function of [accumulator elt], init is initial val of accumulator."
   [f form init]
   (let [acc (atom init)]          ;typically acc should be transient, but since they need special mutators can't be done in a general way. See walk-collect below
     (side-walk
@@ -626,7 +637,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Walk f over thing and return a list of the non-nil returned values"
   [f thing]
   (persistent!
-   (side-reduce (fn [acc elt]
+   (walk-reduce (fn [acc elt]
                  (if-let [it (f elt)]
                    (conj! acc it)
                    acc))
