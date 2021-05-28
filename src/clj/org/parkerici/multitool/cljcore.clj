@@ -207,16 +207,14 @@
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
   (with-open [w (apply io/writer f options)]
-    (binding [*print-length* nil
-              *out* w]
+    (binding [*print-length* nil]
       (prn content))))
 
 (defn schppit
   "Like schpit but will prettyprint."
   [f content & options]
   (with-open [w (apply io/writer f options)]
-    (binding [*print-length* nil
-              *out* w]
+    (binding [*print-length* nil]
       (pprint/pprint content w))))
 
 (defn read-chars

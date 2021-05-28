@@ -4,7 +4,9 @@
    [clojure.string :as str]
    [clojure.set :as set]
    [clojure.walk :as walk]
-   ))
+   )
+  #?(:clj  
+     (:import (java.util.regex Pattern))))
 
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -58,8 +60,8 @@
     (and (string? thing) (not (empty? thing)))
     (if-let [inum (re-matches #"-?\d+" thing)]
       (try
-        #?(:cljs (js/parseInt inum)
-           :clj (Long. inum))
+        #?(:cljs (js/parseInt ^String inum)
+           :clj (Long. ^String inum))
         (catch #?(:clj Throwable :cljs :default)  _ thing))
       (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
         (try
@@ -94,24 +96,49 @@
   [s]
   (str/replace (name s) #"[\_\-]" " "))
 
+(defn strip-chars
+  "Removes every character of a given set from a string"
+  [removed s]
+  (reduce str (remove #((set removed) %) s)))
+
+;;; TODO trim-chars (like strip-chars but only does left/right ends of strings)
+(defn- trim-chars-left
+  [removed s]
+  (let [len (count s)]
+    (loop [index 0]
+      (if (= len index)
+        ""
+        (if (contains? removed (.charAt s index))
+          (recur (unchecked-inc index))
+          (subs s index len))))))
+
+(defn- trim-chars-right
+  [removed s]
+  (let [len (count s)]
+    (loop [index (- len 1)]
+      (if (= len 0)
+        ""
+        (if (contains? removed (.charAt s index))
+          (recur (- index 1))
+          (subs s 0 index))))))
+
+(defn trim-chars
+  "Removes every character of a given set from the ends of a string"
+  [removed s]
+  (let [removed (set removed)]
+    (->> s
+         (trim-chars-left removed)
+         (trim-chars-right removed))))
+
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn re-find-all
-  "Find all matches in a string."
-  [re s]
-  #?(:clj
-     (let [m (re-matcher re s)
-           collector (atom [])]            ;TODO better to use transients
-       (while (.find m)
-         (swap! collector conj (re-groups m)))
-       @collector)
-     :cljs
-     (throw (ex-info "TODO" {}))))
+;;; Deprecated
+(def re-find-all re-seq)
 
 (defn re-quote
   [s]
   #?(:clj  
-     (java.util.regex.Pattern/quote s)
+     (Pattern/quote s)
      :cljs
      (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\])" "\\$1")))
 
@@ -587,7 +614,20 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     [:a-only a-only :b-only b-only :slot-diffs slot-diffs]))
 
 (defn sort-map-by-values [m]
-  (into (sorted-map-by (fn [k1 k2] (compare [(get m k2) k2] [(get m k1) k1]))) m))
+  (into
+   (sorted-map-by
+    (fn [k1 k2]
+      (compare [(get m k1) k1]
+               [(get m k2) k2])))
+   m))
+
+(defn sort-map-by-values-fn [f m]
+  (into
+   (sorted-map-by
+    (fn [k1 k2]
+      (compare [(f (get m k1)) k1]
+               [(f (get m k2)) k2])))
+   m))
 
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
@@ -693,6 +733,17 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
               new (set/difference (set expansion) done)]
           (recur (set/union done (set (list expanded)))
                  (concat new (rest fringe))))))))
+
+;;; TODO radically inefficientg for high n
+;;; TODO add memoization, which should make it efficient
+;;; TODO option for n = infinity, that is transitive closure. In fact integrate with above
+(defn neighborhood
+  "Computes the neighborhood of radius n from from, neighbors is a function that produces the immediate neighbors"
+  [from n neighbors]
+  (if (zero? n)
+    (set (list from))
+    (set (cons from (mapcat #(neighborhood % (- n 1) neighbors)
+                            (neighbors from))))))
 
 ;;; Vectorized fns 
 
