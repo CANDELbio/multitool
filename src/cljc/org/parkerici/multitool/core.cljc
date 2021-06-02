@@ -101,7 +101,8 @@
   [removed s]
   (reduce str (remove #((set removed) %) s)))
 
-;;; TODO trim-chars (like strip-chars but only does left/right ends of strings)
+;;; see str/trim, str/triml, str/trimr,
+;;; but these let you specify the character set to trim
 (defn- trim-chars-left
   [removed s]
   (let [len (count s)]
@@ -129,6 +130,13 @@
     (->> s
          (trim-chars-left removed)
          (trim-chars-right removed))))
+
+
+
+(declare clean-seq)
+(defn comma-list
+  [l]
+  (str/join ", " (clean-seq l)))
 
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -312,11 +320,19 @@
   [seq f]
   (map f seq))
 
+(defn clean-seq
+  "Remove all nil or nullish values from a seq"
+  [s]
+  (remove nullish? s))
+
+;;; deprecated, use clean-seq with caller doing the filtering
 (defn map-filter
   "Applies f to coll. Returns a lazy sequence of the items in coll for which
    all the results that are truthy. f must be free of side-effects."
   [f coll]
-  (remove nullish? (map f coll)))
+  (clean-seq (map f coll)))
+
+;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
 (defn clean-map
@@ -324,18 +340,11 @@
   ([map] (clean-map map nullish?))
   ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
 
-(defn clean-walk
-  "Remove values from all maps in 'struct' based on 'pred' (default is `nullish?`). "
-  ([struct] (clean-walk struct nullish?))
-  ([struct pred] 
-   (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
+(defn all-keys
+  "Given a seq of maps, return the union of all keys"
+  [sheet-data]
+  (reduce set/union (map (comp set keys) sheet-data)))
 
-(defn dissoc-walk
-  [struct & keys]
-  (walk/postwalk #(if (map? %)
-                    (apply dissoc % keys)
-                    %)
-                 struct))
 
 (defn something
   "Like some, but returns the original value of the seq rather than the result of the predicate."
@@ -632,7 +641,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
 
-;;; ⩇⩆⩇ Walker ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn subst
   "Walk `struct`, replacing any keys in map with corresponding value."
@@ -653,7 +662,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                    struct)))
 
 (defn side-walk
-  "Walks form, an arbitrary data structure, evaluating f on each element for side effects "
+  "Walks form, an arbitrary data structure, evaluating f on each element for side effects. Note: has nothing to do with the standard (functional) walker, and maybe should have a different name (traverse?)"
   [f form]
   (f form)
   (cond
@@ -696,6 +705,20 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     nil
     (catch clojure.lang.ExceptionInfo e
       (:value (ex-data e)))))
+
+(defn clean-walk
+  "Remove values from all maps in 'struct' based on 'pred' (default is `nullish?`). "
+  ([struct] (clean-walk struct nullish?))
+  ([struct pred] 
+   (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
+
+(defn dissoc-walk
+  [struct & keys]
+  (walk/postwalk #(if (map? %)
+                    (apply dissoc % keys)
+                    %)
+                 struct))
+
 
 ;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
