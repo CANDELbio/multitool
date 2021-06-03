@@ -480,24 +480,11 @@
        (cons (take psize s)
              (partition-diff f (drop psize s)))))))
 
+;;; Clump-by deprecated and removed when I realized it was basically identical to clojure.core/partion-by
+
 (defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
   (mapcat f (partition-all chunk-size l)))
-
-(defn clump-by
-  "Sequence is ordered (by vfn), comparator is a fn of two elts. Returns groups in which comp is true for consecutive elements"
-  [sequence vfn comparator]
-  (if (empty? sequence)
-    sequence
-    (reverse
-     (map reverse
-          (reduce (fn [res b]
-                    (let [a (first (first res))]
-                      (if (comparator (vfn a) (vfn b))
-                        (cons (cons b (first res)) (rest res))
-                        (cons (list b) res))))
-                  (list (list (first sequence)))
-                  (rest sequence))))))
 
 (defmacro doseq* "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
   [bindings & body]
@@ -561,7 +548,7 @@
 
 ;;; TODO use transients as in group-by
 (defn group-by-multiple
-  "Like group-by, but f produces a seq of values rather than a single one"
+  "Like group-by, but f produces a seq of values rather than a single one; the orginal value gets grouped with each of them"
   [f coll]  
   (reduce
    (fn [ret x]
@@ -570,6 +557,7 @@
              ret (f x)))
    {} coll))
 
+;;; deprecated, makes more sense for caller to do whatever transformations are needed
 (defn group-by-and-transform
   "Like group-by, but the values of the resultant map have f mapped over them"
   [by f results]
@@ -644,21 +632,21 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn subst
-  "Walk `struct`, replacing any keys in map with corresponding value."
+  "vmap defines a substitution; Walk `struct`, replacing any keys that appear in vmap with corresponding value."
   [struct vmap]
   (walk/postwalk #(if (contains? vmap %) (vmap %) %) struct))
 
 (defn subst-gen
-  "Like `subst`, but for entries not in map, call `generator` on first occurance to generate a value"
-  [struct map generator]
-  (let [cache (atom map)
+  "Like `subst`, but for any terminal elements not in map, call `generator` on first occurance to generate a value."
+  [struct vmap generator]
+  (let [cache (atom vmap)
         generate (fn [k]
                    (let [v (generator k)]
                      (swap! cache assoc k v)
                      v))]
-    (walk/postwalk #(if (contains? @cache %)
-                      (@cache %)
-                      (generate %))
+    (walk/postwalk #(cond (coll? %) %
+                          (contains? @cache %) (@cache %)
+                          :else (generate %))
                    struct)))
 
 (defn side-walk
@@ -737,6 +725,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Given f, produce new function that permits nulling."
   [f]
   (fn [x] (and x (f x))))
+
+(defn saferly
+  "Given f, produce new function that will return nils if exception is thrown. Not recommended for production code"
+  [f]
+  (fn [x] (ignore-errors (f x))))
 
 (defn invert
   "For use with ->. Produce a 2-arg fn that takes its args in the opposite order."
