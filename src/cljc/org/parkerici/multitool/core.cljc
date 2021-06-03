@@ -103,7 +103,8 @@
 
 ;;; see str/trim, str/triml, str/trimr,
 ;;; but these let you specify the character set to trim
-(defn- trim-chars-left
+(defn trim-chars-left
+  "Removes every character of a given set from the left end of a string"
   [removed s]
   (let [len (count s)]
     (loop [index 0]
@@ -113,7 +114,8 @@
           (recur (unchecked-inc index))
           (subs s index len))))))
 
-(defn- trim-chars-right
+(defn trim-chars-right
+  "Removes every character of a given set from the right end of a string"
   [removed s]
   (let [len (count s)]
     (loop [index (- len 1)]
@@ -131,16 +133,15 @@
          (trim-chars-left removed)
          (trim-chars-right removed))))
 
-
-
 (declare clean-seq)
 (defn comma-list
-  [l]
-  (str/join ", " (clean-seq l)))
+  "Splice the non-nullish elements of list together in a string, separated by ', '"
+  [list]
+  (str/join ", " (clean-seq list)))
 
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; Deprecated
+;;; Deprecated, I was reinventing the wheel
 (def re-find-all re-seq)
 
 (defn re-quote
@@ -283,7 +284,7 @@
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
-  "Remove occurences of elt in seq"
+  "Remove occurences of elt in seq, applying key-fn before testing if supplied"
   [elt seq & [key-fn]]
   (remove #(= ((or key-fn identity) %) elt) seq))
 
@@ -575,6 +576,7 @@
     (update map k dissoc-in k-rest)
     (dissoc map k)))
 
+;;; Deprecated, use clean-map
 (defn remove-nil-values
   [hashmap]
   (dissoc-if (fn [[_ v]] (not v)) hashmap))

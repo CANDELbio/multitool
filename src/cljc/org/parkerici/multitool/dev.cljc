@@ -20,7 +20,8 @@
   (swap! captures assoc tag thing)
   thing)
 
-#(:clj
+#?
+(:clj
   (defn capture-to-file
     "Capture standard output to file"
     [thunk file]

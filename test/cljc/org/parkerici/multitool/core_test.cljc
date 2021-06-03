@@ -239,4 +239,15 @@
     (testing "gen d values are unique"
       (is (not (= (nth result 3) (nth result 5)))))))
 
+(deftest pam-test
+  (is (= (map #(* % 2) (range 10))
+         (pam (range 10) #(* % 2)))))
 
+(deftest clean-seq-test
+  (is (= '(3 4 [a] "hey")
+         (clean-seq '(3 nil 4 "" [] [a] "hey")))))
+
+(deftest all-keys-test
+  (is (= #{:a :b :c :random}
+         (all-keys [{:a 1 :b 2} {:a 3 :c 4} {} {:random :bits}]))))
+     

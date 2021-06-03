@@ -207,7 +207,8 @@
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
   (with-open [w (apply io/writer f options)]
-    (binding [*print-length* nil]
+    (binding [*print-length* nil
+              *out* w]
       (prn content))))
 
 (defn schppit
