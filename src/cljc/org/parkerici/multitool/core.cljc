@@ -10,14 +10,36 @@
 
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(def memoizers (atom {}))
+
+(defn memoize-named
+  "Like clojure.core/memoize, but retains a ptr to the cache so it can be cleared"
+  [name f]
+  (let [mem (atom {})]
+    (swap! memoizers assoc name mem)
+    (fn [& args]
+      (if-let [e (find @mem args)]
+        (val e)
+        (let [ret (apply f args)]
+          (swap! mem assoc args ret)
+          ret)))))
+
+(defn memoize-reset
+  "Clear the cache of one or all memoized fns"
+  ([]
+   (doseq [[_ mem] @memoizers]
+     (reset! mem {})))
+  ([name]
+   (reset! (get @memoizers name) {})))
+
 ;;; See https://github.com/clojure/core.memoize/ for more memoize hacks
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
   [name args & body]
   ;; This crock is because you can't have multiple varadic arg signatures...sigh
   (if (string? args)
-    `(def ~name ~args (memoize (fn ~(first body) ~@(rest body))))
-    `(def ~name (memoize (fn ~args ~@body)))))
+    `(def ~name ~args (memoize-named '~name (fn ~(first body) ~@(rest body))))
+    `(def ~name (memoize-named '~name (fn ~args ~@body)))))
 
 (defmacro def-lazy
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"

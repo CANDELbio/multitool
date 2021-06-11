@@ -4,6 +4,17 @@
   (:require [clojure.string :as str]
             [org.parkerici.multitool.math :as math]))
 
+(deftest memoize-named-test
+  (let [counter (atom 0)
+        next #(swap! counter inc)
+        mem-next (memoize-named :hey next)]
+    (is (not (= (next) (next))))
+    (is (= (mem-next) (mem-next)))
+    (let [a (mem-next)]
+      (memoize-reset :hey)
+      (is (not (= (mem-next) a))))))
+
+
 (deftest underscore->camelcase-test
   (is (= (underscore->camelcase "foo_bar") "fooBar"))
   (is (= (underscore->camelcase "foo") "foo")))
