@@ -215,8 +215,7 @@
   "Like schpit but will prettyprint."
   [f content & options]
   (with-open [w (apply io/writer f options)]
-    (binding [*print-length* nil
-              *out* w]
+    (binding [*print-length* nil]
       (pprint/pprint content w))))
 
 (defn read-chars

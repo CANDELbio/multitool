@@ -1,7 +1,19 @@
 (ns org.parkerici.multitool.core-test
   (:use clojure.test)
   (:use org.parkerici.multitool.core)
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [org.parkerici.multitool.math :as math]))
+
+(deftest memoize-named-test
+  (let [counter (atom 0)
+        next #(swap! counter inc)
+        mem-next (memoize-named :hey next)]
+    (is (not (= (next) (next))))
+    (is (= (mem-next) (mem-next)))
+    (let [a (mem-next)]
+      (memoize-reset :hey)
+      (is (not (= (mem-next) a))))))
+
 
 (deftest underscore->camelcase-test
   (is (= (underscore->camelcase "foo_bar") "fooBar"))
@@ -24,6 +36,10 @@
 
 (deftest repeat-until-test
   (is (= 16 (repeat-until #(> % 10) #(* % 2) 1))))
+
+(deftest remove=-test
+  (is (= '(0 1 3 4) (remove= 2 (range 5))))
+  (is (= '(0 2 3 4) (remove= 2 (range 5) #(* % 2)))))
 
 (deftest positions-test
   (is (= '(0 2 4 6 8) (positions even? '(0 1 2 3 4 3 2 1 0))))
@@ -79,6 +95,11 @@
          (min-by count (tokens "this is a tediously long string"))))
   (is (nil? (max-by count [])))
   (is (nil? (min-by count []))))
+
+(deftest min*-max*-test
+  (let [words '("you" "call" "this" "living")]
+    (is (= "call" (min* words)))
+    (is (= "you" (max* words)))))
 
 (defn rcons [a b] (cons b a))
 
@@ -142,6 +163,18 @@
   (is (= '{a [a 1], b [b 2], c [c 3]}
          (index-by first '[[a 1] [b 2] [c 3]]))))
 
+(deftest group-by-multiple-test
+  (is (= {2 #{4 6 12 2 14 16 10 18 8}
+          3 #{15 6 3 12 9 18}
+          5 #{15 5 10}
+          7 #{7 14}
+          11 #{11}
+          13 #{13}
+          17 #{17}
+          19 #{19}}
+         (map-values set
+                     (group-by-multiple math/prime-factors (range 2 20))))))
+
 (deftest coerce-numeric-test
   (is (nil? (coerce-numeric nil)))
   (is (= 23 (coerce-numeric 23)))
@@ -150,3 +183,82 @@
   (is (= "" (coerce-numeric "")))
   (is (= + (coerce-numeric +)))
   )
+
+(deftest walk-collect-test
+  (is (= [1 2 3]
+         (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
+
+(deftest walk-find-test
+  (is (= 2
+         (walk-find (saferly even?)
+                    {:a 1 :b [2 3]}))))
+
+(deftest merge-recursive-test
+  (is (= {:a 2} (merge-recursive {:a 1} {:a 2})))
+  (is (= 23 (merge-recursive {:a 1} 23)))
+  (is (= {:a {:x 1, :y 11, :z 22}} (merge-recursive {:a {:x 1 :y 2}} {:a {:y 11 :z 22}} )))
+  (is (= {:a {:x 1 :y 2}} (merge-recursive {:a {:x 1 :y 2}} {:a nil} ))))
+
+(deftest union-by-test
+  (let [words1 #{"this" "is" "kind" "of" "silly"}
+        words2 #{"dont" "you" "think"}
+        union (union-by count words1 words2)
+        union-counts (set (map count union))]
+    ;; the idea is union-by picks one word of each size; not well-defined which one it will be
+    (is (= #{2 3 5 4} union-counts))))
+    
+(deftest safely-test
+  (let [double-safe (safely double)]
+    (is (= 23.0 (double-safe 23)))
+    (is (nil? (double-safe nil)))))
+
+(deftest saferly-test
+  (let [even?-safe (saferly even?)]
+    (is (= true (even?-safe 10)))
+    (is (nil? (even?-safe "estragon")))
+    (is (nil? (even?-safe nil)))))
+
+(deftest partition-if-test
+  (is (= '((0 1) (2 3) (4 5) (6 7) (8 9))
+         (partition-if even? (range 10))))
+  (is (= '()
+         (partition-if even? '())))
+  (is (= '((0))
+         (partition-if even? '(0))))
+  (is (= '((0 1) (2))
+         (partition-if even? (range 3)))))
+
+(deftest partition-diff-test
+  (let [x '(1 9 2 0 3 7 2 2 7 2 7 7 5 7 8 6 5 4 2 1)]
+    (is (= '((1 9) (2) (0 3 7) (2) (2 7) (2 7) (7) (5 7 8) (6) (5) (4) (2) (1))
+           (partition-diff < x)))
+    (is (= '((1) (9 2 0) (3) (7 2) (2) (7 2) (7) (7 5) (7) (8 6 5 4 2 1))
+           (partition-diff > x)))))
+
+(deftest subst-test
+  (let [vmap {:a :arnold :b :betty :c :claudio}
+        struct [:a "likes" #{:b :c}]]
+    (= [:arnold "likes" #{:betty :claudio}]
+       (subst struct vmap))))
+
+(deftest subst-gen-test
+  (let [vmap {:a :arnold :b :betty :c :claudio}
+        struct [:a "likes" #{:b :c} "likes" :d "hates" :e]
+        result (subst-gen struct vmap gensym)]
+    (testing "gen called once per value"
+      (is (= (nth result 1) (nth result 3))))
+    (testing "gen d values are unique"
+      (is (not (= (nth result 3) (nth result 5)))))))
+
+(deftest pam-test
+  (is (= (map #(* % 2) (range 10))
+         (pam (range 10) #(* % 2)))))
+
+(deftest clean-seq-test
+  (is (= '(3 4 [a] "hey")
+         (clean-seq '(3 nil 4 "" [] [a] "hey")))))
+
+(deftest all-keys-test
+  (is (= #{:a :b :c :random}
+         (all-keys [{:a 1 :b 2} {:a 3 :c 4} {} {:random :bits}]))))
+     

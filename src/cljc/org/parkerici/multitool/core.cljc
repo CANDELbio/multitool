@@ -4,9 +4,33 @@
    [clojure.string :as str]
    [clojure.set :as set]
    [clojure.walk :as walk]
-   ))
+   )
+  #?(:clj  
+     (:import (java.util.regex Pattern))))
 
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(def memoizers (atom {}))
+
+(defn memoize-named
+  "Like clojure.core/memoize, but retains a ptr to the cache so it can be cleared"
+  [name f]
+  (let [mem (atom {})]
+    (swap! memoizers assoc name mem)
+    (fn [& args]
+      (if-let [e (find @mem args)]
+        (val e)
+        (let [ret (apply f args)]
+          (swap! mem assoc args ret)
+          ret)))))
+
+(defn memoize-reset
+  "Clear the cache of one or all memoized fns"
+  ([]
+   (doseq [[_ mem] @memoizers]
+     (reset! mem {})))
+  ([name]
+   (reset! (get @memoizers name) {})))
 
 ;;; See https://github.com/clojure/core.memoize/ for more memoize hacks
 (defmacro defn-memoized
@@ -14,8 +38,8 @@
   [name args & body]
   ;; This crock is because you can't have multiple varadic arg signatures...sigh
   (if (string? args)
-    `(def ~name ~args (memoize (fn ~(first body) ~@(rest body))))
-    `(def ~name (memoize (fn ~args ~@body)))))
+    `(def ~name ~args (memoize-named '~name (fn ~(first body) ~@(rest body))))
+    `(def ~name (memoize-named '~name (fn ~args ~@body)))))
 
 (defmacro def-lazy
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
@@ -58,8 +82,8 @@
     (and (string? thing) (not (empty? thing)))
     (if-let [inum (re-matches #"-?\d+" thing)]
       (try
-        #?(:cljs (js/parseInt inum)
-           :clj (Long. inum))
+        #?(:cljs (js/parseInt ^String inum)
+           :clj (Long. ^String inum))
         (catch #?(:clj Throwable :cljs :default)  _ thing))
       (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
         (try
@@ -94,24 +118,58 @@
   [s]
   (str/replace (name s) #"[\_\-]" " "))
 
+(defn strip-chars
+  "Removes every character of a given set from a string"
+  [removed s]
+  (reduce str (remove #((set removed) %) s)))
+
+;;; see str/trim, str/triml, str/trimr,
+;;; but these let you specify the character set to trim
+(defn trim-chars-left
+  "Removes every character of a given set from the left end of a string"
+  [removed s]
+  (let [len (count s)]
+    (loop [index 0]
+      (if (= len index)
+        ""
+        (if (contains? removed (.charAt s index))
+          (recur (unchecked-inc index))
+          (subs s index len))))))
+
+(defn trim-chars-right
+  "Removes every character of a given set from the right end of a string"
+  [removed s]
+  (let [len (count s)]
+    (loop [index (- len 1)]
+      (if (= len 0)
+        ""
+        (if (contains? removed (.charAt s index))
+          (recur (- index 1))
+          (subs s 0 index))))))
+
+(defn trim-chars
+  "Removes every character of a given set from the ends of a string"
+  [removed s]
+  (let [removed (set removed)]
+    (->> s
+         (trim-chars-left removed)
+         (trim-chars-right removed))))
+
+(declare clean-seq)
+(defn comma-list
+  "Splice the non-nullish elements of list together in a string, separated by ', '"
+  [list]
+  (str/join ", " (clean-seq list)))
+
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn re-find-all
-  "Find all matches in a string."
-  [re s]
-  #?(:clj
-     (let [m (re-matcher re s)
-           collector (atom [])]            ;TODO better to use transients
-       (while (.find m)
-         (swap! collector conj (re-groups m)))
-       @collector)
-     :cljs
-     (throw (ex-info "TODO" {}))))
+;;; Deprecated, I was reinventing the wheel
+(def re-find-all re-seq)
 
-(defn- re-quote
+(defn re-quote
   [s]
   #?(:clj  
-     (java.util.regex.Pattern/quote s)
+     (Pattern/quote s)
      :cljs
      (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\])" "\\$1")))
 
@@ -216,6 +274,11 @@
   [v]
   (or (false? v) (nil? v) (and (seqable? v) (empty? v))))
 
+(defn or-nil
+  "Given a 1-arg pred, return a new fn that acts as identity if pred is true, nil otherwise"
+  [pred]
+  (fn [thing] (if (pred thing) thing nil)))
+
 (defn >*
   "Generalization of > to work on anything with a compare fn"
   ([a b]
@@ -243,9 +306,9 @@
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
-  "Remove occurences of elt in seq"
-  [elt seq]
-  (remove #(= % elt) seq))
+  "Remove occurences of elt in seq, applying key-fn before testing if supplied"
+  [elt seq & [key-fn]]
+  (remove #(= ((or key-fn identity) %) elt) seq))
 
 (defn positions
   "Returns a list of indexes of coll for which pred is true"
@@ -261,13 +324,13 @@
 
 (defn positions=
   "Return list of indexes of coll that contain elt"
-  [elt coll]
-  (positions #(= % elt) coll))
+  [elt coll & [key-fn]]
+  (positions #(= ((or key-fn identity) %) elt) coll))
 
 (defn position=
   "Returns the first index of coll that contains elt"
-  [elt coll]
-  (first (positions= elt coll)))
+  [elt coll & [key-fn]]
+  (first (positions= elt coll (or key-fn identity))))
 
 (defn separate
   "Separate coll into two collections based on pred"
@@ -276,33 +339,35 @@
     [(get grouped true) (get grouped false)]))
 
 (defn pam
-  "Like map but takes its args in different order, useful for ->"
+  "Like map but takes its args in inverse order, useful for ->"
   [seq f]
   (map f seq))
 
+(defn clean-seq
+  "Remove all nil or nullish values from a seq"
+  [s]
+  (remove nullish? s))
+
+;;; deprecated, use clean-seq with caller doing the filtering
 (defn map-filter
   "Applies f to coll. Returns a lazy sequence of the items in coll for which
    all the results that are truthy. f must be free of side-effects."
   [f coll]
-  (remove nullish? (map f coll)))
+  (clean-seq (map f coll)))
 
+;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
 (defn clean-map
   "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
   ([map] (clean-map map nullish?))
   ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
 
-(defn clean-walk
-  "Remove values from all maps in 'struct' based on 'pred' (default is `nullish?`). "
-  ([struct] (clean-walk struct nullish?))
-  ([struct pred] 
-   (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
+(defn all-keys
+  "Given a seq of maps, return the union of all keys"
+  [sheet-data]
+  (reduce set/union (map (comp set keys) sheet-data)))
 
-(defn dissoc-walk
-  [struct & keys]
-  (walk/postwalk #(if (map? %)
-                    (apply dissoc % keys)
-                    %)
-                 struct))
 
 (defn something
   "Like some, but returns the original value of the seq rather than the result of the predicate."
@@ -377,9 +442,7 @@
      (f seq) (cons seq (filter-rest f (rest seq)))
      :else (filter-rest f (rest seq)))))
 
-
-
-(defn max-by "Find the maximim element of `seq` based on keyfn"
+(defn max-by "Find the maximum element of `seq` based on keyfn"
   [keyfn seq]
   (when-not (empty? seq)
     (reduce (fn [a b] (if (>* (keyfn a) (keyfn b)) a b))
@@ -390,6 +453,10 @@
   (when-not (empty? seq)
     (reduce (fn [a b] (if (<* (keyfn a) (keyfn b)) a b))
             seq)))
+
+;;; Versions of min and max that use generalized compare (and take args in a seq)
+(def min* (partial min-by identity))
+(def max* (partial max-by identity))
 
 (defn lunion "Compute the union of `lists`"
   [& lists]
@@ -403,30 +470,44 @@
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
 
-
-
 ;;; partition-lossless
 ;;; Previously called take-groups
 ;;; and turns out to be subsumed by clojure.core/partition-all
 
+(defn partition-if
+  "Partition coll at every v for which (f v) is true"
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           run (cons fst (take-while #(not (f %)) (next s)))]
+       (cons run (partition-if f (lazy-seq (drop (count run) s))))))))
+
+(defn rest-while
+  "Like take-while but applies pred to successive tails of the seq, and returns a seq of tails"
+  [pred coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (when (pred s)
+       (cons s (rest-while pred (rest s)))))))
+
+(defn partition-diff
+  "Partition coll between v1 and v2 at points for which (f v1 v2) is true"
+  [f coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [run (rest-while #(and (> (count %) 1)
+                                 (f (first %) (second %)))
+                           s)
+           psize (+ 1 (count run))]
+       (cons (take psize s)
+             (partition-diff f (drop psize s)))))))
+
+;;; Clump-by deprecated and removed when I realized it was basically identical to clojure.core/partion-by
+
 (defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
   (mapcat f (partition-all chunk-size l)))
-
-(defn clump-by
-  "Sequence is ordered (by vfn), comparator is a fn of two elts. Returns groups in which comp is true for consecutive elements"
-  [sequence vfn comparator]
-  (if (empty? sequence)
-    sequence
-    (reverse
-     (map reverse
-          (reduce (fn [res b]
-                    (let [a (first (first res))]
-                      (if (comparator (vfn a) (vfn b))
-                        (cons (cons b (first res)) (rest res))
-                        (cons (list b) res))))
-                  (list (list (first sequence)))
-                  (rest sequence))))))
 
 (defmacro doseq* "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
   [bindings & body]
@@ -451,16 +532,15 @@
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; TODO? could work like regular merge and prefer m2 when unmergeable
-;;; TODO? might want a version that combined these into a vector or something similar
+;;; Note: changed in 0.0.12 to not error if unmergeable
 ;;; TODO should take arbitary # of args like merge
+;;; Had a version that tried to walk parallel sequences, but was not the right thing
+;;; Would be interesting to be able to supply a merge function for leafs (like union)
 (defn merge-recursive [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
-        (nil? m1) m2
         (nil? m2) m1
-        (= m1 m2) m1
-        :else (throw (ex-info (str "Can't merge " m1 " and " m2) {}))))
+        :else m2))
 
 (defn map-keys [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
@@ -473,6 +553,17 @@
   [f coll]  
   (zipmap (map f coll) coll))
 
+(defn index-by-ordered 
+  "Return an array map of the elements of coll indexed by (f elt), preserving the order. See index-by"
+  [f coll]  
+  (apply array-map
+         (mapcat (fn [elt] [(f elt) elt]) coll)))
+
+(defn union-by
+  "Return unique elements in (union s1 s2) given f as identity key"
+  [f s1 s2]
+  (set (vals (merge (index-by f s1) (index-by f s2)))))
+
 (defn index-by-and-transform
   "Return a map of the elements of coll indexed by (f elt) and transformed by (g elt). "
   [f g coll]  
@@ -480,7 +571,7 @@
 
 ;;; TODO use transients as in group-by
 (defn group-by-multiple
-  "Like group-by, but f produces a seq of values rather than a single one"
+  "Like group-by, but f produces a seq of values rather than a single one; the orginal value gets grouped with each of them"
   [f coll]  
   (reduce
    (fn [ret x]
@@ -489,6 +580,7 @@
              ret (f x)))
    {} coll))
 
+;;; deprecated, makes more sense for caller to do whatever transformations are needed
 (defn group-by-and-transform
   "Like group-by, but the values of the resultant map have f mapped over them"
   [by f results]
@@ -496,7 +588,8 @@
    #(map f %)
    (group-by by results)))
 
-(defn dissoc-if [f hashmap]
+(defn dissoc-if
+  [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
 
 (defn dissoc-in
@@ -505,7 +598,9 @@
     (update map k dissoc-in k-rest)
     (dissoc map k)))
 
-(defn remove-nil-values [hashmap]
+;;; Deprecated, use clean-map
+(defn remove-nil-values
+  [hashmap]
   (dissoc-if (fn [[_ v]] (not v)) hashmap))
 
 (defn map-invert-multiple
@@ -531,50 +626,111 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
         b-only (set/difference (set (keys b)) both)
         slot-diffs
         (for [k both
-              :when (not (= (k a) (k b)))]
-          (if (and (map? (k a)) (map? (k b)))
-            [:slot-diff k (map-diff (k a) (k b))]
-            [:slot-diff k (k a) (k b)]))]
+              :let [av (get a k)
+                    bv (get b k)]
+              :when (not (= av bv))]
+          (if (and (map? av) (map? bv))
+            [:slot-diff k (map-diff av bv)]
+            [:slot-diff k av bv]))]
     [:a-only a-only :b-only b-only :slot-diffs slot-diffs]))
 
 (defn sort-map-by-values [m]
-  (into (sorted-map-by (fn [k1 k2] (compare [(get m k2) k2] [(get m k1) k1]))) m))
+  (into
+   (sorted-map-by
+    (fn [k1 k2]
+      (compare [(get m k1) k1]
+               [(get m k2) k2])))
+   m))
+
+(defn sort-map-by-values-fn [f m]
+  (into
+   (sorted-map-by
+    (fn [k1 k2]
+      (compare [(f (get m k1)) k1]
+               [(f (get m k2)) k2])))
+   m))
 
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
 
-;;; ⩇⩆⩇ Walker ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn subst
-  "Walk `struct`, replacing any keys in map with corresponding value."
+  "vmap defines a substitution; Walk `struct`, replacing any keys that appear in vmap with corresponding value."
   [struct vmap]
   (walk/postwalk #(if (contains? vmap %) (vmap %) %) struct))
 
 (defn subst-gen
-  "Like `subst`, but for entries not in map, call `generator` on first occurance to generate a value"
-  [struct map generator]
-  (let [cache (atom map)
+  "Like `subst`, but for any terminal elements not in map, call `generator` on first occurance to generate a value."
+  [struct vmap generator]
+  (let [cache (atom vmap)
         generate (fn [k]
                    (let [v (generator k)]
                      (swap! cache assoc k v)
                      v))]
-    (walk/postwalk #(if (contains? @cache %)
-                      (@cache %)
-                      (generate %))
+    (walk/postwalk #(cond (coll? %) %
+                          (contains? @cache %) (@cache %)
+                          :else (generate %))
                    struct)))
 
-;;; TODO avoid atom with a loop?
+(defn side-walk
+  "Walks form, an arbitrary data structure, evaluating f on each element for side effects. Note: has nothing to do with the standard (functional) walker, and maybe should have a different name (traverse?)"
+  [f form]
+  (f form)
+  (cond
+    (coll? form) (doseq [elt form] (side-walk f elt))
+    (map-entry? form)
+    (do (side-walk f (key form))
+        (side-walk f (val form)))))
+
+;;; Formerly side-reduce
+(defn walk-reduce
+  "Walks form with an accumulator. f is a function of [accumulator elt], init is initial val of accumulator."
+  [f form init]
+  (let [acc (atom init)]          ;typically acc should be transient, but since they need special mutators can't be done in a general way. See walk-collect below
+    (side-walk
+     (fn [elt]
+       (swap! acc f elt))
+     form)
+    @acc))
+
 (defn walk-collect
   "Walk f over thing and return a list of the non-nil returned values"
   [f thing]
-  (let [collector (atom [])]
-    (clojure.walk/postwalk
-     #(do
-        (when-let [v (f %)]
-          (swap! collector conj v))
-        %)
+  (persistent!
+   (walk-reduce (fn [acc elt]
+                 (if-let [it (f elt)]
+                   (conj! acc it)
+                   acc))
+               thing
+               (transient []))))
+
+(defn walk-find
+  "Walk over thing and return the first val for which f is non-nil"
+  [f thing]
+  (try
+    (side-walk
+     (fn [thing]
+       (if (f thing)
+         (throw (ex-info "value" {:value thing}))))
      thing)
-    @collector))
+    nil
+    (catch clojure.lang.ExceptionInfo e
+      (:value (ex-data e)))))
+
+(defn clean-walk
+  "Remove values from all maps in 'struct' based on 'pred' (default is `nullish?`). "
+  ([struct] (clean-walk struct nullish?))
+  ([struct pred] 
+   (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
+
+(defn dissoc-walk
+  [struct & keys]
+  (walk/postwalk #(if (map? %)
+                    (apply dissoc % keys)
+                    %)
+                 struct))
+
 
 ;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -588,6 +744,16 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                    tail))))
 
 ;;; ⩇⩆⩇ Functional ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn safely
+  "Given f, produce new function that permits nulling."
+  [f]
+  (fn [x] (and x (f x))))
+
+(defn saferly
+  "Given f, produce new function that will return nils if exception is thrown. Not recommended for production code"
+  [f]
+  (fn [x] (ignore-errors (f x))))
 
 (defn invert
   "For use with ->. Produce a 2-arg fn that takes its args in the opposite order."
@@ -607,6 +773,17 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
               new (set/difference (set expansion) done)]
           (recur (set/union done (set (list expanded)))
                  (concat new (rest fringe))))))))
+
+;;; TODO radically inefficientg for high n
+;;; TODO add memoization, which should make it efficient
+;;; TODO option for n = infinity, that is transitive closure. In fact integrate with above
+(defn neighborhood
+  "Computes the neighborhood of radius n from from, neighbors is a function that produces the immediate neighbors"
+  [from n neighbors]
+  (if (zero? n)
+    (set (list from))
+    (set (cons from (mapcat #(neighborhood % (- n 1) neighbors)
+                            (neighbors from))))))
 
 ;;; Vectorized fns 
 
@@ -635,6 +812,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Return a random float within range of p"
   [p range]
   (rand-range (- p range) (+ p range)))
+
+(defn random-element
+  "Return a random element from a seq"
+  [l]
+  (nth l (rand-int (count l))))
 
 (defn round
   "Round the argument"

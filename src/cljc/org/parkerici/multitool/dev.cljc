@@ -9,8 +9,6 @@
   [x]
   `(let [x# ~x] (println "dbg:" '~x "=" x#) x#))
 
-;;; TODO there is something similar built into Clojure 1.10, tap>, maybe use that.
-
 (defn tapr "Print `thing` and  return it as value"
   [thing]
   (prn thing)
@@ -21,6 +19,16 @@
 (defn capture [tag thing]
   (swap! captures assoc tag thing)
   thing)
+
+#?
+(:clj
+  (defn capture-to-file
+    "Capture standard output to file"
+    [thunk file]
+    (with-open [w (clojure.java.io/writer file)] 
+      (binding [*out* w]
+        (thunk))))
+  )
 
 ;;; TODO – implement equiv of CL mt/plet
 
