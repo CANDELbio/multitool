@@ -39,3 +39,26 @@ From a real terminal (not Emacs)
     lein deploy clojars
 	
 You will need to supply credentials (user name and  authentication token).
+
+
+# Release Notes
+
+## 0.0.16
+
+- random doc improvements
+- rename memoize-reset → memoize-reset! 
+- add memoizer-stats
+- add pmap-values and pmap-keys
+- renames subst → substitute, to avoid collision with clojure.core
+- mostly making this to find repo problem
+
+## 0.0.15
+
+- added resettable memoizers
+- added walk-collect and other side-effecting structure walker utilities
+- added trim-chars and other string-cleaning utilities
+- added neighborhood
+- changes to merge-recursive to be less throw-prone
+- added partition-diff
+- added comma-list
+- assorted bug-fixes, cleanups, tests

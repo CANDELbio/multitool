@@ -8,12 +8,19 @@
   #?(:clj  
      (:import (java.util.regex Pattern))))
 
+;;; Warning: some hacks in here could be considered poor Clojure form. Using
+;;; them might put your soul at hazard.
+
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; See https://github.com/clojure/core.memoize/ for more a elaborate memoization tool.
+
+;;; It would probably be cleaner to use the function metadata, but I want to be able
+;;; to clear them all.
 (def memoizers (atom {}))
 
 (defn memoize-named
-  "Like clojure.core/memoize, but retains a ptr to the cache so it can be cleared"
+  "Like clojure.core/memoize, but retains a ptr to the cache so it can be cleared (see memoize-reset)"
   [name f]
   (let [mem (atom {})]
     (swap! memoizers assoc name mem)
@@ -24,7 +31,7 @@
           (swap! mem assoc args ret)
           ret)))))
 
-(defn memoize-reset
+(defn memoize-reset!
   "Clear the cache of one or all memoized fns"
   ([]
    (doseq [[_ mem] @memoizers]
@@ -32,7 +39,12 @@
   ([name]
    (reset! (get @memoizers name) {})))
 
-;;; See https://github.com/clojure/core.memoize/ for more memoize hacks
+(defn memoizer-stats
+  "Return information about all memoize-name fns"
+  []
+  (zipmap (keys @memoizers)
+          (map (comp count deref) (vals @memoizers))))
+
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
   [name args & body]
@@ -89,9 +101,9 @@
         (try
           #?(:cljs (js/parseFloat fnum)
              :clj (Double. fnum))
-          (catch #?(:clj Throwable :cljs :default) _ thing))
+          (catch #?(:clj Throwable :cljs "default") _ thing))
         thing))
-    true thing))
+    :else thing))
 
 (defn coerce-numeric-hard
   "Coerce thing to a number if possible, otherwise return nil"
@@ -542,11 +554,26 @@
         (nil? m2) m1
         :else m2))
 
-(defn map-keys [f hashmap]
+(defn map-values
+  "Map f over the values of hashmap"
+  [f hashmap]
+  (reduce-kv (fn [acc k v] (assoc acc k (f v))) {} hashmap))
+
+(defn map-keys
+  "Map f over the keys of hashmap"
+  [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
-(defn map-values [f hashmap]
-  (reduce-kv (fn [acc k v] (assoc acc k (f v))) {} hashmap))
+;;; Faster!
+(defn pmap-values
+  "Map f over the values of hashmap in parallel"
+  [f hashmap]
+  (zipmap (keys hashmap) (pmap f (vals hashmap))))
+
+(defn pmap-keys
+  "Map f over the kes of hashmap in parallel"
+  [f hashmap]
+  (zipmap (pmap f (keys hashmap)) (vals hashmap)))
 
 (defn index-by 
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
@@ -655,13 +682,14 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn subst
+;;; Previously subst, but that collides with clojure.core
+(defn substitute
   "vmap defines a substitution; Walk `struct`, replacing any keys that appear in vmap with corresponding value."
   [struct vmap]
   (walk/postwalk #(if (contains? vmap %) (vmap %) %) struct))
 
-(defn subst-gen
-  "Like `subst`, but for any terminal elements not in map, call `generator` on first occurance to generate a value."
+(defn substitute-gen
+  "Like `substitute`, but for any terminal elements not in map, call `generator` on first occurance to generate a value."
   [struct vmap generator]
   (let [cache (atom vmap)
         generate (fn [k]
@@ -676,12 +704,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 (defn side-walk
   "Walks form, an arbitrary data structure, evaluating f on each element for side effects. Note: has nothing to do with the standard (functional) walker, and maybe should have a different name (traverse?)"
   [f form]
-  (f form)
-  (cond
-    (coll? form) (doseq [elt form] (side-walk f elt))
-    (map-entry? form)
-    (do (side-walk f (key form))
-        (side-walk f (val form)))))
+  (do 
+    (f form)
+    (cond
+      (coll? form) (doseq [elt form] (side-walk f elt))
+      (map-entry? form)
+      (do (side-walk f (key form))
+          (side-walk f (val form))))))
 
 ;;; Formerly side-reduce
 (defn walk-reduce
@@ -774,8 +803,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
           (recur (set/union done (set (list expanded)))
                  (concat new (rest fringe))))))))
 
-;;; TODO radically inefficientg for high n
-;;; TODO add memoization, which should make it efficient
+;;; TODO radically inefficient for high n
+;;; TODO add memoization
 ;;; TODO option for n = infinity, that is transitive closure. In fact integrate with above
 (defn neighborhood
   "Computes the neighborhood of radius n from from, neighbors is a function that produces the immediate neighbors"

@@ -11,7 +11,7 @@
     (is (not (= (next) (next))))
     (is (= (mem-next) (mem-next)))
     (let [a (mem-next)]
-      (memoize-reset :hey)
+      (memoize-reset! :hey)
       (is (not (= (mem-next) a))))))
 
 
@@ -235,16 +235,16 @@
     (is (= '((1) (9 2 0) (3) (7 2) (2) (7 2) (7) (7 5) (7) (8 6 5 4 2 1))
            (partition-diff > x)))))
 
-(deftest subst-test
+(deftest substitute-test
   (let [vmap {:a :arnold :b :betty :c :claudio}
         struct [:a "likes" #{:b :c}]]
     (= [:arnold "likes" #{:betty :claudio}]
-       (subst struct vmap))))
+       (substitute struct vmap))))
 
-(deftest subst-gen-test
+(deftest substitute-gen-test
   (let [vmap {:a :arnold :b :betty :c :claudio}
         struct [:a "likes" #{:b :c} "likes" :d "hates" :e]
-        result (subst-gen struct vmap gensym)]
+        result (substitute-gen struct vmap gensym)]
     (testing "gen called once per value"
       (is (= (nth result 1) (nth result 3))))
     (testing "gen d values are unique"
