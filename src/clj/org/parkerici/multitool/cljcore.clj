@@ -166,7 +166,7 @@
 (defn sh-errchecked [& args]
   (let [res (apply shell/sh args)]
     (when-not (= (:exit res) 0)
-      (throw (Exception. "Bad result from shell" res))
+      (throw (ex-info "Bad result from shell" res))
       )))
 
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇

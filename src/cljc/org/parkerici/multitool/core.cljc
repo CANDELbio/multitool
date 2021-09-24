@@ -350,10 +350,16 @@
   (let [grouped (group-by pred coll)]
     [(get grouped true) (get grouped false)]))
 
-(defn pam
-  "Like map but takes its args in inverse order, useful for ->"
-  [seq f]
-  (map f seq))
+;;; TODO Needs a better name
+(defn threadable
+  "Return a fn like f but with first two arguments swapped"
+  [f]
+  (fn [a b & rest]
+    (apply f b a rest)))
+
+(def ^{:doc "Map backwards. Like map, but takes its args in inverse order. useful in conjunction with ->"}
+  pam
+  (threadable map))
 
 (defn clean-seq
   "Remove all nil or nullish values from a seq"
@@ -435,6 +441,7 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+;;; TODO this turns nil into (nil) which is never what you want.
 (defn sequencify [thing]
   (if (sequential? thing)
     thing
@@ -554,6 +561,9 @@
         (nil? m2) m1
         :else m2))
 
+;;; The fns below are going to be in clojure.core someday
+;;; https://clojure.atlassian.net/browse/CLJ-1959
+
 (defn map-values
   "Map f over the values of hashmap"
   [f hashmap]
@@ -610,20 +620,28 @@
 ;;; deprecated, makes more sense for caller to do whatever transformations are needed
 (defn group-by-and-transform
   "Like group-by, but the values of the resultant map have f mapped over them"
-  [by f results]
+  [by f seq]
   (map-values
    #(map f %)
-   (group-by by results)))
+   (group-by by seq)))
 
 (defn dissoc-if
   [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
 
 (defn dissoc-in
+  "Dissoc in a nested map structure"
   [map [k & k-rest]]
   (if k-rest
     (update map k dissoc-in k-rest)
     (dissoc map k)))
+
+(defn merge-in
+  "Merge in a nested map structure"
+  [map [k & k-rest] changes]
+  (if k-rest
+    (update map k merge-in k-rest changes)
+    (update map k merge changes)))
 
 ;;; Deprecated, use clean-map
 (defn remove-nil-values
