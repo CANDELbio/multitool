@@ -261,4 +261,25 @@
 (deftest all-keys-test
   (is (= #{:a :b :c :random}
          (all-keys [{:a 1 :b 2} {:a 3 :c 4} {} {:random :bits}]))))
-     
+
+(deftest stratify-test
+  (let [results
+        (stratify '{1 {:name a :predecessors []}
+                    2 {:name b :predecessors [1]}
+                    3 {:name c :predecessors [1]}
+                    4 {:name d :predecessors [1 3]}
+                    }
+                  :predecessors :depth)]
+    (is (= {1 0 2 1 3 1 4 2} (map-values :depth results))))
+  (testing "consistency check"
+    (is (thrown? AssertionError
+                 (stratify  '{1 {:name a :predecessors []}
+                              2 {:name b :predecessors [foo]}
+                              3 {:name c :predecessors [1]}}
+                            :predecessors :depth)))))
+
+(deftest self-label-test
+  (is (= '{1 {:name a :id 1}
+           2 {:name b :id 2}}
+         (self-label :id '{1 {:name a} 2 {:name b}}))))
+

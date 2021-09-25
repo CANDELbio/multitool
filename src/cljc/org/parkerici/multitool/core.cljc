@@ -373,20 +373,6 @@
   [f coll]
   (clean-seq (map f coll)))
 
-;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
-
-;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
-(defn clean-map
-  "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
-  ([map] (clean-map map nullish?))
-  ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
-
-(defn all-keys
-  "Given a seq of maps, return the union of all keys"
-  [sheet-data]
-  (reduce set/union (map (comp set keys) sheet-data)))
-
-
 (defn something
   "Like some, but returns the original value of the seq rather than the result of the predicate."
   [pred seq]
@@ -441,12 +427,15 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
-;;; TODO this turns nil into (nil) which is never what you want.
-(defn sequencify [thing]
-  (if (sequential? thing)
-    thing
-    (list thing)))
+(defn sequencify
+  "Turn thing into a sequence if it already isn't one"
+  [thing]
+  (when thing
+    (if (sequential? thing)
+      thing
+      (list thing))))
 
+;;; TODO Should be unsequencify for consistency
 (defn unlist [thing]
   (if (and (sequential? thing) (= 1 (count thing)))
     (first thing)
@@ -551,6 +540,20 @@
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+
+;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
+(defn clean-map
+  "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
+  ([map] (clean-map map nullish?))
+  ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
+
+(defn all-keys
+  "Given a seq of maps, return the union of all keys"
+  [sheet-data]
+  (reduce set/union (map (comp set keys) sheet-data)))
+
+
+
 ;;; Note: changed in 0.0.12 to not error if unmergeable
 ;;; TODO should take arbitary # of args like merge
 ;;; Had a version that tried to walk parallel sequences, but was not the right thing
@@ -574,6 +577,11 @@
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
+(defn map-key-values
+  "Map f over [k v] of hashmap, returning new v"
+  [f hashmap]
+  (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
+
 ;;; Faster!
 (defn pmap-values
   "Map f over the values of hashmap in parallel"
@@ -589,6 +597,11 @@
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
   [f coll]  
   (zipmap (map f coll) coll))
+
+(defn self-label
+  "Given a map HASHMAP with maps as values, adds the index to each value as the value of attriute ATTR"
+  [attr hashmap]
+  (map-key-values (fn [k v] (assoc v attr k)) hashmap))
 
 (defn index-by-ordered 
   "Return an array map of the elements of coll indexed by (f elt), preserving the order. See index-by"
@@ -821,17 +834,6 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
           (recur (set/union done (set (list expanded)))
                  (concat new (rest fringe))))))))
 
-;;; TODO radically inefficient for high n
-;;; TODO add memoization
-;;; TODO option for n = infinity, that is transitive closure. In fact integrate with above
-(defn neighborhood
-  "Computes the neighborhood of radius n from from, neighbors is a function that produces the immediate neighbors"
-  [from n neighbors]
-  (if (zero? n)
-    (set (list from))
-    (set (cons from (mapcat #(neighborhood % (- n 1) neighbors)
-                            (neighbors from))))))
-
 ;;; Vectorized fns 
 
 (defn vectorize
@@ -881,3 +883,32 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [n]
   #?(:clj (format "%x" n)
      :cljs (.toString n 16)))
+
+;;; ⩇⩆⩇ Graph computations ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; TODO radically inefficient for high n, needs memoization
+;;; TODO option for n = infinity, that is transitive closure. In fact TODO integrate with transitive-closure
+(defn neighborhood
+  "Computes the neighborhood of radius n from from, neighbors is a function that produces the immediate neighbors"
+  [from n neighbors]
+  (if (zero? n)
+    (set (list from))
+    (set (cons from (mapcat #(neighborhood % (- n 1) neighbors)
+                            (neighbors from))))))
+
+(defn stratify
+  "g is a map, predecessors is a function of g values to g indices.
+  computes for each node the depth: if no predecssors 0, otherwise (inc (max (depth predecssors)))
+  useful for laying out DAGs, possibly elsewhere"
+  [g predecessors depth-prop]
+  (letfn [(depth [node-id]
+            (assert (contains? g node-id)) ;sanity check
+            (let [predecessors (predecessors (get g node-id))]
+              (if (empty? predecessors)
+                0
+                (+ 1 (apply max (map depth predecessors))))))]
+    ;; TODO depth should be memoized, but that is tricky
+    ;; see https://blog.klipse.tech/lambda/2016/08/10/y-combinator-app.html
+    ;; Which really should be in this library anyway...
+    (map-key-values (fn [k v] (assoc v depth-prop (depth k))) g)))
+

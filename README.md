@@ -43,6 +43,13 @@ You will need to supply credentials (user name and  authentication token).
 
 # Release Notes
 
+## 0.0.17
+
+- add threadable and make pam use it
+- add merge-in
+- add map-key-values and stratify
+- add self-label
+  
 ## 0.0.16
 
 - random doc improvements
