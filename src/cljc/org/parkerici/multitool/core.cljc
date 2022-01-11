@@ -350,8 +350,8 @@
   (let [grouped (group-by pred coll)]
     [(get grouped true) (get grouped false)]))
 
-;;; TODO Needs a better name
-(defn threadable
+;;; Formerly threadable, also see invert
+(defn swapped
   "Return a fn like f but with first two arguments swapped"
   [f]
   (fn [a b & rest]
@@ -359,7 +359,7 @@
 
 (def ^{:doc "Map backwards. Like map, but takes its args in inverse order. useful in conjunction with ->"}
   pam
-  (threadable map))
+  (swapped map))
 
 (defn clean-seq
   "Remove all nil or nullish values from a seq"
@@ -386,7 +386,8 @@
 
 (defn safe-nth
   [col n]
-  (and (<= 0 n (count col))
+  (and (< n (count col))
+       (>= n 0)
        (nth col n)))
 
 (defn distinctly
@@ -805,6 +806,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Functional ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; See clojure.core/fnil. 
 (defn safely
   "Given f, produce new function that permits nulling."
   [f]
@@ -815,10 +817,6 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [f]
   (fn [x] (ignore-errors (f x))))
 
-(defn invert
-  "For use with ->. Produce a 2-arg fn that takes its args in the opposite order."
-  [f]
-  (fn [a b] (f b a)))
 
 (defn transitive-closure 
   "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure."
@@ -911,4 +909,16 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     ;; see https://blog.klipse.tech/lambda/2016/08/10/y-combinator-app.html
     ;; Which really should be in this library anyway...
     (map-key-values (fn [k v] (assoc v depth-prop (depth k))) g)))
+
+;;; TODO add-inverse might be better name
+(defn add-parent
+  "Given a db (map of maps), and a multi-valued attribute children-at, compute the single-valued inverse relationship as parent-att"
+  [db children-att parent-att]
+  (reduce-kv (fn [acc key item]
+               (reduce (fn [acc child]
+                         (assoc-in acc [child parent-att] key))
+                       acc
+                       (children-att item)))
+             db
+             db))
 
