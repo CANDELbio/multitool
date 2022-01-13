@@ -262,5 +262,7 @@
     (io/copy in out)))
 
 (defn download
+  "Common use case for copy-paths"
   [uri file]
   (copy-paths uri file))
+

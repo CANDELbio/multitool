@@ -111,6 +111,18 @@
   (let [n (coerce-numeric thing)]
     (and (number? n) n)))
 
+(defn ordinal-suffix
+  [n]
+  (case (mod n 10)
+    1 "st"
+    2 "nd"
+    3 "rd"
+    "th"))
+
+(defn ordinal
+  [n]
+  (str n (ordinal-suffix n)))
+
 (defn coerce-boolean
   "Coerce a value (eg a string from a web API) into a boolean"
   [v]
@@ -129,6 +141,10 @@
   "Convert - and _ to spaces"
   [s]
   (str/replace (name s) #"[\_\-]" " "))
+
+(defn-memoized n-chars
+  [n char]
+  (str/join (repeat n char)))
 
 (defn strip-chars
   "Removes every character of a given set from a string"
@@ -599,10 +615,16 @@
   [f coll]  
   (zipmap (map f coll) coll))
 
-(defn self-label
-  "Given a map HASHMAP with maps as values, adds the index to each value as the value of attriute ATTR"
-  [attr hashmap]
-  (map-key-values (fn [k v] (assoc v attr k)) hashmap))
+(defn index-by-multiple
+  [f coll]
+  "Like index-by, but f produces a seq of values rather than a single one"
+  [f coll]  
+  (reduce
+   (fn [ret x]
+     (reduce (fn [ret y]
+               (assoc ret y x))
+             ret (f x)))
+   {} coll))
 
 (defn index-by-ordered 
   "Return an array map of the elements of coll indexed by (f elt), preserving the order. See index-by"
@@ -712,6 +734,23 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
 
+;;; ⩇⩆⩇ Transients ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;;  unaccountably missing from core
+(defn update!
+  [map k f & args]
+  (assoc! map k (apply f (get map k) args)))
+
+;;; ⩇⩆⩇ Collecters ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn collecting
+  "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collection is returned."
+  [exec]
+  (let [acc (atom [])
+        collect #(swap! acc conj %)]
+    (exec collect)
+    @acc))
+
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; Previously subst, but that collides with clojure.core
@@ -794,6 +833,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 
 ;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn sconj
+  "Like conj but will always create a set."
+  [coll elt]
+  (conj (set coll) elt))
 
 (defn powerset
   "Compute the powerset of a set"
@@ -910,15 +954,38 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     ;; Which really should be in this library anyway...
     (map-key-values (fn [k v] (assoc v depth-prop (depth k))) g)))
 
-;;; TODO add-inverse might be better name
-(defn add-parent
-  "Given a db (map of maps), and a multi-valued attribute children-at, compute the single-valued inverse relationship as parent-att"
-  [db children-att parent-att]
+(defn- map-db-children
+  [f db children-att]
   (reduce-kv (fn [acc key item]
                (reduce (fn [acc child]
-                         (assoc-in acc [child parent-att] key))
+                         (f acc key child))
                        acc
                        (children-att item)))
              db
              db))
+
+;;; AKA add-parent
+(defn add-inverse
+  "Given a db (map of maps), and a multi-valued attribute children-att, compute the single-valued inverse relationship as parent-att"
+  [db children-att parent-att]
+  (map-db-children
+   (fn [db key child]
+     (assoc-in db [child parent-att] key))
+   db
+   children-att))
+
+;;; AKA add-parents
+(defn add-inverse-multiple
+  "Given a db (map of maps), and a multi-valued attribute children-att, compute the single-valued inverse relationship as parent-att"
+  [db children-att parent-att]
+  (map-db-children
+   (fn [db key child]
+     (update-in db [child parent-att] sconj key))
+   db
+   children-att))
+  
+(defn self-label
+  "Given a map HASHMAP with maps as values, adds the index to each value as the value of attriute ATTR"
+  [attr hashmap]
+  (map-key-values (fn [k v] (assoc v attr k)) hashmap))
 

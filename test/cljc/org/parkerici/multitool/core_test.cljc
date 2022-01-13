@@ -283,3 +283,20 @@
            2 {:name b :id 2}}
          (self-label :id '{1 {:name a} 2 {:name b}}))))
 
+
+(deftest add-inverse-test
+  (let [db {:a {:children [:b :c]}
+            :b {:children [:d]}}]
+    (is (= {:a {:children [:b :c]}
+            :b {:children [:d] :parent :a}
+            :c {:parent :a} 
+            :d {:parent :b}}
+           (add-inverse db :children :parent)))))
+
+(deftest add-inverse-multiple-test
+  (let [db {:a {:children [:b :c]}
+            :b {:children [:c]}}]
+    (is (= {:a {:children [:b :c]}
+            :b {:children [:c] :parents #{:a}}
+            :c {:parents #{:a :b}}}
+         (add-inverse-multiple db :children :parents)))))

@@ -43,6 +43,13 @@ You will need to supply credentials (user name and  authentication token).
 
 # Release Notes
 
+## 0.0.18
+
+- added: ordinary-suffix, n-chars, index-by-multiple, update!, collecting, add-inverse[-multiple
+- added copy-paths, download (clj only)
+- renamed threadable to swapped
+- fixed a bug in safe-nth
+
 ## 0.0.17
 
 - add threadable and make pam use it
