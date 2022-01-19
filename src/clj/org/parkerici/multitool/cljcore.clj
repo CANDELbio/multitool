@@ -14,6 +14,21 @@
            [java.text SimpleDateFormat]
            [java.awt Desktop]))
 
+;;; ⩇⩆⩇ Parellelism ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; Clojurescript does not have pmap, unsuprisingly
+
+(defn pmap-values
+  "Map f over the values of hashmap in parallel"
+  [f hashmap]
+  (zipmap (keys hashmap) (pmap f (vals hashmap))))
+
+(defn pmap-keys
+  "Map f over the kes of hashmap in parallel"
+  [f hashmap]
+  (zipmap (pmap f (keys hashmap)) (vals hashmap)))
+
+
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn error "Throw a generic Exception with formatted string"

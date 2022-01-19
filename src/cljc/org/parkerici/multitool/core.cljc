@@ -8,8 +8,7 @@
   #?(:clj  
      (:import (java.util.regex Pattern))))
 
-;;; Warning: some hacks in here could be considered poor Clojure form. Using
-;;; them might put your soul at hazard.
+;;; Warning: some hacks in here could be considered poor Clojure form. 
 
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -45,6 +44,7 @@
   (zipmap (keys @memoizers)
           (map (comp count deref) (vals @memoizers))))
 
+;;; TODO! This and its usages needs to be reworked for CLJS, argh
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
   [name args & body]
@@ -70,7 +70,8 @@
   "Execute `body`, if an exception occurs, print a message and continue"
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e# (println (str "Ignored error: " (.getMessage e#))))))
+        (catch #?(:clj Throwable :cljs :default) e#
+          (println (str "Ignored: " (str e#))))))
 
 (defn error-handling-fn
   "Returns a fn that acts like f, but return value is (true result) or (false errmsg) in the case of an error"
@@ -112,6 +113,7 @@
     (and (number? n) n)))
 
 (defn ordinal-suffix
+  "The suffix for the ordinal version of n"
   [n]
   (case (mod n 10)
     1 "st"
@@ -120,6 +122,7 @@
     "th"))
 
 (defn ordinal
+  "Ordinal string for number n, eg 123 → \"123rd\""
   [n]
   (str n (ordinal-suffix n)))
 
@@ -191,9 +194,6 @@
 
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; Deprecated, I was reinventing the wheel
-(def re-find-all re-seq)
-
 (defn re-quote
   [s]
   #?(:clj  
@@ -227,7 +227,7 @@
 (def template-regex #"\{(.*?)\}")       ;extract the template fields from the entity
 
 (defn expand-template-string
-  "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings"
+  "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
   [template bindings]
   (let [matches (->> (re-seq template-regex template) 
                      (map (fn [[match key]]
@@ -243,11 +243,11 @@
     (assert (not (empty? vars)) "Template has no {fields}")
     (doseq [var vars]
       (assert (contains? fields var)
-              (str "Template var {" var "} is not in sheet")))))
+              (str "Template var {" var "} is not defined")))))
 
 ;;; Stolen from clj-glob, where it is internal 
 (defn glob->regex
-  "Takes a glob-format string and returns a regex."
+  "Takes a glob-format string and returns an equivalent regex."
   [s]
   (loop [stream s
          re ""
@@ -285,9 +285,9 @@
   (keyword (namespace root)
            (str (name root) (get @key-counter root))))
 
-;;; see https://github.com/brandonbloom/backtick for possibly better solution
-(defn dens
-  "Remove the namespaces that backquote insists on adding"
+;;; See https://github.com/brandonbloom/backtick for possibly better solution,
+(defn de-ns
+  "De-namespace. Remove the namespaces that backquote insists on adding. See tests for illustation."
   [struct]
   (walk/postwalk 
    #(if (symbol? %)
@@ -302,31 +302,34 @@
   [v]
   (or (false? v) (nil? v) (and (seqable? v) (empty? v))))
 
+(defn truthy?
+  "Return false if x is nil or false, true otherwise"
+  [x]
+  (if x true false))
+
 (defn or-nil
   "Given a 1-arg pred, return a new fn that acts as identity if pred is true, nil otherwise"
   [pred]
   (fn [thing] (if (pred thing) thing nil)))
 
-(defn >*
-  "Generalization of > to work on anything with a compare fn"
-  ([a b]
-   (> (compare a b) 0))
-  ([a b & rest]
-   (and (>* a b)
-        (apply >* b rest))))
+(defn- generalize-comparator
+  [comp]
+  (fn c ([a b]
+         (comp (compare a b) 0))
+    ([a b & rest]
+     (and (c a b)
+          (apply c b rest)))))
 
-(defn <*
-  "Generalization of < to work on anything with a compare fn"
-  ([a b]
-   (< (compare a b) 0))
-  ([a b & rest]
-   (and (<* a b)
-        (apply <* b rest))))
+(def >* (generalize-comparator >))
+(def <* (generalize-comparator <))
+(def >=* (generalize-comparator >=))
+(def <=* (generalize-comparator <=))
+(def =* (generalize-comparator =))      ;not sure this is ever different from =
 
 ;;; ⩇⩆⩇ Sequences ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn doall-safe
-  "Realize lazy sequences, if arg is such, otherwise a no-op."
+  "Realize lazy sequences, if arg is such, otherwise acts as identity"
   [thing]
   (if (sequential? thing)
     (doall thing)
@@ -361,12 +364,12 @@
   (first (positions= elt coll (or key-fn identity))))
 
 (defn separate
-  "Separate coll into two collections based on pred"
+  "Separate coll into two collections based on pred."
   [pred coll]
-  (let [grouped (group-by pred coll)]
+  (let [grouped (group-by (comp truthy? pred) coll)]
     [(get grouped true) (get grouped false)]))
 
-;;; Formerly threadable, also see invert
+;;; Formerly threadable
 (defn swapped
   "Return a fn like f but with first two arguments swapped"
   [f]
@@ -378,29 +381,31 @@
   (swapped map))
 
 (defn clean-seq
-  "Remove all nil or nullish values from a seq"
+  "Remove all nullish values from a seq"
   [s]
   (remove nullish? s))
 
 ;;; deprecated, use clean-seq with caller doing the filtering
+#_
 (defn map-filter
   "Applies f to coll. Returns a lazy sequence of the items in coll for which
    all the results that are truthy. f must be free of side-effects."
   [f coll]
   (clean-seq (map f coll)))
 
-(defn something
+(defn some-thing
   "Like some, but returns the original value of the seq rather than the result of the predicate."
   [pred seq]
   (some #(and (pred %) %) seq))
 
 ;;; TODO better name for this! Now that it has a much cleaner implementation.
 (defn repeat-until
-  "Iterate f on start until a value is produced that is pred"
+  "Iterate f on start until a value is produced that passes pred, returns value."
   [pred f start]
-  (something pred (iterate f start)))
+  (some-thing pred (iterate f start)))
 
 (defn safe-nth
+  "Like nth but will return nil if out of bounds rather than erroring"
   [col n]
   (and (< n (count col))
        (>= n 0)
@@ -483,15 +488,18 @@
 (def min* (partial min-by identity))
 (def max* (partial max-by identity))
 
-(defn lunion "Compute the union of `lists`"
+(defn lunion
+  "Compute the union of `lists`"
   [& lists]
   (apply set/union (map set lists)))
 
-(defn lintersection "Compute the intersection of `lists`"
+(defn lintersection
+  "Compute the intersection of `lists`"
   [& lists]
   (seq (apply set/intersection (map set lists))))
 
-(defn lset-difference "Compute the set difference of `list1` - `list2'"
+(defn lset-difference
+  "Compute the set difference of `list1` - `list2'"
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
 
@@ -528,13 +536,15 @@
        (cons (take psize s)
              (partition-diff f (drop psize s)))))))
 
-;;; Clump-by deprecated and removed when I realized it was basically identical to clojure.core/partion-by
+;;; Clump-by deprecated and removed when I realized it was basically identical to clojure.core/partition-by
 
-(defn map-chunked "Call f with chunk-sized subsequences of l, concat the results"
+(defn map-chunked
+  "Call f with chunk-sized subsequences of l, concat the results"
   [f chunk-size l]
   (mapcat f (partition-all chunk-size l)))
 
-(defmacro doseq* "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
+(defmacro doseq*
+  "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
   [bindings & body]
   (let [bindings (partition 2 bindings)
         vars (map first bindings)
@@ -557,7 +567,6 @@
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-
 ;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
 (defn clean-map
   "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
@@ -568,7 +577,6 @@
   "Given a seq of maps, return the union of all keys"
   [sheet-data]
   (reduce set/union (map (comp set keys) sheet-data)))
-
 
 
 ;;; Note: changed in 0.0.12 to not error if unmergeable
@@ -584,6 +592,8 @@
 ;;; The fns below are going to be in clojure.core someday
 ;;; https://clojure.atlassian.net/browse/CLJ-1959
 
+;;; For Clojure, see cljcore/pmap-values cljcore/pmap-keys
+
 (defn map-values
   "Map f over the values of hashmap"
   [f hashmap]
@@ -598,17 +608,6 @@
   "Map f over [k v] of hashmap, returning new v"
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
-
-;;; Faster!
-(defn pmap-values
-  "Map f over the values of hashmap in parallel"
-  [f hashmap]
-  (zipmap (keys hashmap) (pmap f (vals hashmap))))
-
-(defn pmap-keys
-  "Map f over the kes of hashmap in parallel"
-  [f hashmap]
-  (zipmap (pmap f (keys hashmap)) (vals hashmap)))
 
 (defn index-by 
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
@@ -744,7 +743,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 ;;; ⩇⩆⩇ Collecters ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn collecting
-  "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collection is returned."
+  "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collection is returned. See tests for example"
   [exec]
   (let [acc (atom [])
         collect #(swap! acc conj %)]

@@ -2,6 +2,7 @@
   (:use clojure.test)
   (:use org.parkerici.multitool.core)
   (:require [clojure.string :as str]
+            [org.parkerici.multitool.nlp :as nlp]
             [org.parkerici.multitool.math :as math]))
 
 (deftest memoize-named-test
@@ -183,6 +184,17 @@
   (is (= "" (coerce-numeric "")))
   (is (= + (coerce-numeric +)))
   )
+
+;;; from Blood Meridian, Cormac McCarthy
+(def text1 "They rode all day upon a pale gastine sparsely grown with saltbush and panicgrass. In the evening they entrained upon a hollow ground that rang so roundly under the horses' hooves that they stepped and sidled and rolled their eyes like circus animals and that night as they lay in that ground each heard, all heard, the dull boom of rock falling somewhere far below them in the awful darkness inside the world.")
+
+(deftest collecting-test
+  (is (= ["pale" "sparsely" "panicgrass"]
+         (collecting
+          (fn [collect]
+            (doseq [word (nlp/tokens text1)]
+              (when (re-find #"pa" word)
+                (collect word))))))))
 
 (deftest walk-collect-test
   (is (= [1 2 3]

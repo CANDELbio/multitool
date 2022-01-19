@@ -45,10 +45,12 @@ You will need to supply credentials (user name and  authentication token).
 
 ## 0.0.18
 
-- added: ordinary-suffix, n-chars, index-by-multiple, update!, collecting, add-inverse[-multiple
+- added: ordinal-suffix, n-chars, index-by-multiple, update!, collecting, add-inverse[-multiple], collecting
+- added: neighborhood, add-inverse, add-inverse-multiple
 - added copy-paths, download (clj only)
 - renamed threadable to swapped
-- fixed a bug in safe-nth
+- fixed bugs in safe-nth, sequencify
+
 
 ## 0.0.17
 
@@ -64,7 +66,6 @@ You will need to supply credentials (user name and  authentication token).
 - add memoizer-stats
 - add pmap-values and pmap-keys
 - renames subst → substitute, to avoid collision with clojure.core
-- mostly making this to find repo problem
 
 ## 0.0.15
 
