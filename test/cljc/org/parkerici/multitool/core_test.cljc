@@ -2,6 +2,7 @@
   (:use clojure.test)
   (:use org.parkerici.multitool.core)
   (:require [clojure.string :as str]
+            [org.parkerici.multitool.nlp :as nlp]
             [org.parkerici.multitool.math :as math]))
 
 (deftest memoize-named-test
@@ -11,7 +12,7 @@
     (is (not (= (next) (next))))
     (is (= (mem-next) (mem-next)))
     (let [a (mem-next)]
-      (memoize-reset :hey)
+      (memoize-reset! :hey)
       (is (not (= (mem-next) a))))))
 
 
@@ -184,6 +185,17 @@
   (is (= + (coerce-numeric +)))
   )
 
+;;; from Blood Meridian, Cormac McCarthy
+(def text1 "They rode all day upon a pale gastine sparsely grown with saltbush and panicgrass. In the evening they entrained upon a hollow ground that rang so roundly under the horses' hooves that they stepped and sidled and rolled their eyes like circus animals and that night as they lay in that ground each heard, all heard, the dull boom of rock falling somewhere far below them in the awful darkness inside the world.")
+
+(deftest collecting-test
+  (is (= ["pale" "sparsely" "panicgrass"]
+         (collecting
+          (fn [collect]
+            (doseq [word (nlp/tokens text1)]
+              (when (re-find #"pa" word)
+                (collect word))))))))
+
 (deftest walk-collect-test
   (is (= [1 2 3]
          (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
@@ -235,16 +247,16 @@
     (is (= '((1) (9 2 0) (3) (7 2) (2) (7 2) (7) (7 5) (7) (8 6 5 4 2 1))
            (partition-diff > x)))))
 
-(deftest subst-test
+(deftest substitute-test
   (let [vmap {:a :arnold :b :betty :c :claudio}
         struct [:a "likes" #{:b :c}]]
     (= [:arnold "likes" #{:betty :claudio}]
-       (subst struct vmap))))
+       (substitute struct vmap))))
 
-(deftest subst-gen-test
+(deftest substitute-gen-test
   (let [vmap {:a :arnold :b :betty :c :claudio}
         struct [:a "likes" #{:b :c} "likes" :d "hates" :e]
-        result (subst-gen struct vmap gensym)]
+        result (substitute-gen struct vmap gensym)]
     (testing "gen called once per value"
       (is (= (nth result 1) (nth result 3))))
     (testing "gen d values are unique"
@@ -261,4 +273,42 @@
 (deftest all-keys-test
   (is (= #{:a :b :c :random}
          (all-keys [{:a 1 :b 2} {:a 3 :c 4} {} {:random :bits}]))))
-     
+
+(deftest stratify-test
+  (let [results
+        (stratify '{1 {:name a :predecessors []}
+                    2 {:name b :predecessors [1]}
+                    3 {:name c :predecessors [1]}
+                    4 {:name d :predecessors [1 3]}
+                    }
+                  :predecessors :depth)]
+    (is (= {1 0 2 1 3 1 4 2} (map-values :depth results))))
+  (testing "consistency check"
+    (is (thrown? AssertionError
+                 (stratify  '{1 {:name a :predecessors []}
+                              2 {:name b :predecessors [foo]}
+                              3 {:name c :predecessors [1]}}
+                            :predecessors :depth)))))
+
+(deftest self-label-test
+  (is (= '{1 {:name a :id 1}
+           2 {:name b :id 2}}
+         (self-label :id '{1 {:name a} 2 {:name b}}))))
+
+
+(deftest add-inverse-test
+  (let [db {:a {:children [:b :c]}
+            :b {:children [:d]}}]
+    (is (= {:a {:children [:b :c]}
+            :b {:children [:d] :parent :a}
+            :c {:parent :a} 
+            :d {:parent :b}}
+           (add-inverse db :children :parent)))))
+
+(deftest add-inverse-multiple-test
+  (let [db {:a {:children [:b :c]}
+            :b {:children [:c]}}]
+    (is (= {:a {:children [:b :c]}
+            :b {:children [:c] :parents #{:a}}
+            :c {:parents #{:a :b}}}
+         (add-inverse-multiple db :children :parents)))))

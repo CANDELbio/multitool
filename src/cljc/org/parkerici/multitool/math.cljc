@@ -3,23 +3,22 @@
 ;;; ⩇⩆⩇ Scaling and interpolation ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn interpolate
-  "Return a number between a and b, s is from [0,1]"
+  "Return a number between a and b, s is in interval [0, 1]"
   [a b s]
   (+ (* a (- 1 s)) (* b s)))
 
 (defn interpolated
-  "Return a sequence of n equally-spaced numbers beteen and b"
+  "Return a sequence of n equally-spaced numbers between a and b"
   [a b n]
   (map #(interpolate a b (/ % (float n))) (range n)))
 
 (defn rescale
-  "Val is a number from [from-lower, from-upper], scale it to [to-loer, to-upper]"
+  "Val is a number from interval [from-lower, from-upper], scale it to [to-lower, to-upper]"
   [val from-lower from-upper to-lower to-upper]
   (+ to-lower
      (* (- val from-lower)
         (/ (- to-upper to-lower)
            (- from-upper from-lower)))))
-
 
 ;;; ⩇⩆⩇ Number theory ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

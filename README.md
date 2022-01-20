@@ -39,3 +39,41 @@ From a real terminal (not Emacs)
     lein deploy clojars
 	
 You will need to supply credentials (user name and  authentication token).
+
+
+# Release Notes
+
+## 0.0.18
+
+- added: ordinal-suffix, n-chars, index-by-multiple, update!, collecting, add-inverse[-multiple], collecting
+- added: neighborhood, add-inverse, add-inverse-multiple
+- added copy-paths, download (clj only)
+- renamed threadable to swapped
+- fixed bugs in safe-nth, sequencify
+
+
+## 0.0.17
+
+- add threadable and make pam use it
+- add merge-in
+- add map-key-values and stratify
+- add self-label
+  
+## 0.0.16
+
+- random doc improvements
+- rename memoize-reset → memoize-reset! 
+- add memoizer-stats
+- add pmap-values and pmap-keys
+- renames subst → substitute, to avoid collision with clojure.core
+
+## 0.0.15
+
+- added resettable memoizers
+- added walk-collect and other side-effecting structure walker utilities
+- added trim-chars and other string-cleaning utilities
+- added neighborhood
+- changes to merge-recursive to be less throw-prone
+- added partition-diff
+- added comma-list
+- assorted bug-fixes, cleanups, tests

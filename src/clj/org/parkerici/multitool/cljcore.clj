@@ -14,6 +14,21 @@
            [java.text SimpleDateFormat]
            [java.awt Desktop]))
 
+;;; ⩇⩆⩇ Parellelism ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; Clojurescript does not have pmap, unsuprisingly
+
+(defn pmap-values
+  "Map f over the values of hashmap in parallel"
+  [f hashmap]
+  (zipmap (keys hashmap) (pmap f (vals hashmap))))
+
+(defn pmap-keys
+  "Map f over the kes of hashmap in parallel"
+  [f hashmap]
+  (zipmap (pmap f (keys hashmap)) (vals hashmap)))
+
+
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn error "Throw a generic Exception with formatted string"
@@ -166,7 +181,7 @@
 (defn sh-errchecked [& args]
   (let [res (apply shell/sh args)]
     (when-not (= (:exit res) 0)
-      (throw (Exception. "Bad result from shell" res))
+      (throw (ex-info "Bad result from shell" res))
       )))
 
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -254,3 +269,15 @@
   [^String b64-string]
   (String. (.decode (Base64/getDecoder) (.getBytes b64-string))))
   
+(defn copy-paths
+  "Copy in-path to out-path, in-path can be URI or filename, out-path should be a file"
+  [in-path out-path]
+  (with-open [in (io/input-stream in-path)
+              out (io/output-stream out-path)]
+    (io/copy in out)))
+
+(defn download
+  "Common use case for copy-paths"
+  [uri file]
+  (copy-paths uri file))
+
