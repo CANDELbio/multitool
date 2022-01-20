@@ -145,9 +145,11 @@
   [s]
   (str/replace (name s) #"[\_\-]" " "))
 
-(defn-memoized n-chars
-  [n char]
-  (str/join (repeat n char)))
+;;; TODO this breaks in cljs, can't refer to macro in same file its defined. Argh
+#?(:clj 
+   (defn-memoized n-chars
+     [n char]
+     (str/join (repeat n char))))
 
 (defn strip-chars
   "Removes every character of a given set from a string"
@@ -287,7 +289,7 @@
 
 ;;; See https://github.com/brandonbloom/backtick for possibly better solution,
 (defn de-ns
-  "De-namespace. Remove the namespaces that backquote insists on adding. See tests for illustation."
+  "De-namespace. Remove the namespaces that backquote insists on adding. See tests for illustration."
   [struct]
   (walk/postwalk 
    #(if (symbol? %)

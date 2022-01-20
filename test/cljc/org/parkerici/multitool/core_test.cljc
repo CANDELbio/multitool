@@ -32,8 +32,8 @@
     (= (map f (range 100))
        (map-chunked #(map f %) 7 (range 100)))))
       
-(deftest something-test
-  (is (= 2 (something even? '(1 2 3 4)))))
+(deftest some-thing-test
+  (is (= 2 (some-thing even? '(1 2 3 4)))))
 
 (deftest repeat-until-test
   (is (= 16 (repeat-until #(> % 10) #(* % 2) 1))))
