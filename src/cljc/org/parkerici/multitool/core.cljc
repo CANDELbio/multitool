@@ -581,13 +581,18 @@
   (reduce set/union (map (comp set keys) sheet-data)))
 
 
-;;; Note: changed in 0.0.12 to not error if unmergeable
+;;; Note:
+;;;   Changed in 0.0.12 to not error if unmergeable
+;;;   Changed in 0.0.19 to merge terminal sets
 ;;; TODO should take arbitary # of args like merge
-;;; Had a version that tried to walk parallel sequences, but was not the right thing
-;;; Would be interesting to be able to supply a merge function for leafs (like union)
-(defn merge-recursive [m1 m2]
+;;; TODO should be able to specify how to merge terminals. 
+(defn merge-recursive
+  "Merge two arbitrariy nested map structures. Terminal sets are merged."
+  [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
+        (and (set? m1) (set? m2))
+        (set/union m1 m2)
         (nil? m2) m1
         :else m2))
 
