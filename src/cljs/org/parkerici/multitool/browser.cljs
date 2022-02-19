@@ -3,6 +3,11 @@
 
 ;;; ⩇⩆⩇ Browser-specific ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn browser-url
+  ":Get URL of current page"            
+  []
+  (-> js/window .-location .-href))
+
 (defn url-params
   "Get the url params from the browser window as a map"
   []

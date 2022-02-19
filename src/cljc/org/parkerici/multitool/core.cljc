@@ -583,16 +583,18 @@
 
 ;;; Note:
 ;;;   Changed in 0.0.12 to not error if unmergeable
-;;;   Changed in 0.0.19 to merge terminal sets
+;;;   Changed in 0.0.19 to merge terminal sets and sequences
 ;;; TODO should take arbitary # of args like merge
 ;;; TODO should be able to specify how to merge terminals. 
 (defn merge-recursive
-  "Merge two arbitrariy nested map structures. Terminal sets are merged."
+  "Merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
   [m1 m2]
   (cond (and (map? m1) (map? m2))
         (merge-with merge-recursive m1 m2)
         (and (set? m1) (set? m2))
         (set/union m1 m2)
+        (and (sequential? m1) (sequential? m2))
+        (concat m1 m2)
         (nil? m2) m1
         :else m2))
 
@@ -749,13 +751,24 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Collecters ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn collecting
+;;; Warning: these work via side-effects so beware of lazy seq evaluation;
+;;; You probably need to use deseq instead of for/map
+
+(defn make-collecter
+  [init collect-fn]
+  (fn [exec]
+    (let [acc (atom init)
+          collect #(swap! acc collect-fn %)]
+      (exec collect)
+      @acc)))
+
+(def collecting
   "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collection is returned. See tests for example"
-  [exec]
-  (let [acc (atom [])
-        collect #(swap! acc conj %)]
-    (exec collect)
-    @acc))
+  (make-collecter [] conj))
+
+(def collecting-merge
+  "Exec is a fn of one argument, which is called and passed another fn it can use to collect values which are merged with merge-recursive; the result is returned. See tests for example TODO" 
+  (make-collecter {} merge-recursive))
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

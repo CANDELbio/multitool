@@ -196,6 +196,14 @@
               (when (re-find #"pa" word)
                 (collect word))))))))
 
+(deftest collecting-merge-test
+  (let [silly
+        (collecting-merge
+         (fn [collect]
+           (doseq [word (nlp/tokens text1)]
+             (collect {(first word) [word]}))))]
+    (is (= (get silly \h) '("hollow" "horses'" "hooves" "heard" "heard")))))
+
 (deftest walk-collect-test
   (is (= [1 2 3]
          (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
@@ -206,11 +214,18 @@
                     {:a 1 :b [2 3]}))))
 
 (deftest merge-recursive-test
-  (is (= {:a 2} (merge-recursive {:a 1} {:a 2})))
-  (is (= {:a {:x 1, :y 11, :z 22}} (merge-recursive {:a {:x 1 :y 2}} {:a {:y 11 :z 22}} )))
-  (is (= {:a {:x 1 :y 2}} (merge-recursive {:a {:x 1 :y 2}} {:a nil} )))
-  (is (= 23 (merge-recursive {:a 1} 23)))
-  (is (= {:a #{1 2 10 20}} (merge-recursive {:a #{1 2}} {:a #{10 20}})))
+  (is (= {:a 2}
+         (merge-recursive {:a 1} {:a 2})))
+  (is (= {:a {:x 1, :y 11, :z 22}}
+         (merge-recursive {:a {:x 1 :y 2}} {:a {:y 11 :z 22}} )))
+  (is (= {:a {:x 1 :y 2}}
+         (merge-recursive {:a {:x 1 :y 2}} {:a nil} )))
+  (is (= 23
+         (merge-recursive {:a 1} 23)))
+  (is (= {:a #{1 2 10 20}}
+         (merge-recursive {:a #{1 2}} {:a #{10 20}})))
+  (is (= '{:a (1 2 3 4)}
+         (merge-recursive {:a [1 2]} '{:a (3 4)})))
   )
 
 (deftest union-by-test
