@@ -38,6 +38,11 @@
   ([name]
    (reset! (get @memoizers name) {})))
 
+(defn memoize-cache
+  "Return the cache (map of args to values) for a named memoizer."
+  [name]
+  (get @memoized name))
+
 (defn memoizer-stats
   "Return information about all memoize-name fns"
   []
