@@ -41,7 +41,7 @@
 (defn memoize-cache
   "Return the cache (map of args to values) for a named memoizer."
   [name]
-  (get @memoized name))
+  (get @memoizers name))
 
 (defn memoizer-stats
   "Return information about all memoize-name fns"
