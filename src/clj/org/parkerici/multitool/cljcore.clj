@@ -6,7 +6,7 @@
    [clojure.java.io :as io]
    [clojure.java.shell :as shell]
    [org.parkerici.multitool.core :as core])
-  (:import [java.util Base64 Date UUID]
+  (:import [java.util Base64 Date]
            [java.io File Reader PushbackReader]
            [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]
@@ -213,10 +213,6 @@
     (if (> pos 0)
       (cons pos (string-search-all string sub (+ 1 pos)))
       ())))
-
-(defn random-uuid
-  []
-  (str (UUID/randomUUID)))
 
 (defn schpit
   "Like core/spit, but will do something sensible for lazy seqs."
