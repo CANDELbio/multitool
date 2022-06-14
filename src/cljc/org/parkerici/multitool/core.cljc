@@ -78,6 +78,13 @@
         (catch #?(:clj Throwable :cljs :default) e#
           (println (str "Ignored: " (str e#))))))
 
+(defmacro ignore-return
+  "Execute `body`, if an exception occurs, return it"
+  [& body]
+  `(try (do ~@body)
+        (catch #?(:clj Throwable :cljs :default) e#
+          e#)))
+
 (defn error-handling-fn
   "Returns a fn that acts like f, but return value is (true result) or (false errmsg) in the case of an error"
   [f]

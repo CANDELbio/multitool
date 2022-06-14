@@ -37,10 +37,10 @@
   (map * (rest (range)) (cons 1 (lazy-seq factorials))))
 
 (defn prime-factors
-  "Prime factors of n (this is a slow and simpleminded method, not recommended for large n)"
+  "Prime factors of n (this is a slow and simpleminded method, not recommended for n>1000000)"
   [n]
   (loop [nn n
-         [prime & rest-primes] primes
+         [prime & rest-primes :as primes] primes
          acc ()]
     (cond (= nn 1) acc
           (zero? (mod nn prime))
