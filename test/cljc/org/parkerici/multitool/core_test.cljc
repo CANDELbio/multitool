@@ -42,6 +42,14 @@
   (is (= '(0 1 3 4) (remove= 2 (range 5))))
   (is (= '(0 2 3 4) (remove= 2 (range 5) #(* % 2)))))
 
+(deftest delete-subseq-test
+  (let [seq '(a b c d e f)]
+    (= '(a e f g) (delete-subseq seq '(b c c)))
+    (= '(c d e f g) (delete-subseq seq '(a b)))
+    (= '(a b c d e) (delete-subseq seq '(f g)))
+    (= seq (delete-subseq seq '(a x)))
+    (= '() (delete-subseq seq seq))))
+
 (deftest positions-test
   (is (= '(0 2 4 6 8) (positions even? '(0 1 2 3 4 3 2 1 0))))
   (is (= '(3 5) (positions= 3 '(0 1 2 3 4 3 2 1 0)))))
@@ -50,6 +58,16 @@
   (is (= 1 (position even? '(1 2 3 4 3 2 1 0))))
   (is (= nil (position string? '(1 2 3 4 3 2 1 0))))
   (is (= 3 (position= 3 '(0 1 2 3 4 3 2 1 0)))))
+
+(deftest sort-with-numeric-prefix-test
+  (is (= '("foo" "0001 foo" "2 foo" "100 demons")
+         (sort-with-numeric-prefix ["100 demons" "0001 foo" "2 foo" "foo"]))))
+
+(deftest subseqs-test
+  (let [seq5 '(a b c d e)]
+    (is (= '((a b c) (b c d) (c d e)) (subseqs seq5 3)))
+    (is (= '((a b c d) (b c d e)) (subseqs seq5 4)))
+    (is (= '() (subseqs seq5 10)))))
 
 (deftest powerset-test
 
@@ -122,6 +140,22 @@
            (expand-template-string template ent1)))
     (is (= "The dog must have !"
            (expand-template-string template ent2)))))
+
+(deftest consolidate-test
+  (is (= {:a 1 :b 2} (consolidate {:a 1} {:b 2})))
+  (is (= {:a 1} (consolidate {:a 1} {:a 1})))
+  (is (= nil (consolidate {:a 1} {:a 2}))))
+
+(deftest pattern-match-test
+  (is (= {} (pattern-match '(a 1) '(a 1))))
+  (is (= nil (pattern-match '(a 1) '(a 2))))
+  (is (= {:var 2} (pattern-match '(a (? var)) '(a 2))))
+  (is (= nil (pattern-match '(a (? var)) '(a))))
+  (is (= nil (pattern-match '(a b c) '(a))))
+  (is (= nil (pattern-match '(a) '(a b c) ))) ;TODO not working I think
+  (is (= '{:a x :b y} (pattern-match '((? a) (? b)) '(x y) )))
+  (is (= '{:a x} (pattern-match '((? a) (? a)) '(x x))))
+  (is (= nil (pattern-match '((? a) (? a)) '(x y) ))))
 
 (deftest uncollide-test
   (is (= '(1 2 3) (uncollide '(1 2 3))))

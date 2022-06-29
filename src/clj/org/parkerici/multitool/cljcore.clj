@@ -85,6 +85,9 @@
   (when (file-exists? fname)
     (file-delete-recursively fname)))
 
+;;; TODO list files recursively, fs/ doesn't support directly
+
+
 ;;; http://stackoverflow.com/questions/840190/changing-the-current-working-directory-in-java
 (defn cd "As in Unix shell cd"
   [^String dirname]
@@ -132,8 +135,26 @@
       (doseq [l seq]
         (println l)))))
 
-(defn process-file-lines [f in out]
-  (file-lines-out out (map f (file-lines in))))
+;;; Copied from fs to avoid a dependency
+(defn- tmp-file
+  "The temporary file directory looked up via the java.io.tmpdir
+   system property. Does not create a temporary directory."
+  []
+  (str (System/getProperty "java.io.tmpdir") (gensym "tmpfile")))
+
+(defn- rename-file
+  "Rename old-path to new-path. Only works on files."
+  [old-path new-path]
+  (.renameTo (io/file old-path) (io/file new-path)))
+
+;;; TODO this can alter EOF newlines, causing spurious git modifications. Argh
+(defn process-file-lines
+  ([f in out]
+   (file-lines-out out (map f (file-lines in))))
+  ([f in]
+   (let [out (tmp-file)]
+     (process-file-lines f in out)
+     (rename-file out in))))
 
 ;;; TODO generalize to more than one form?
 (defn read-from-file

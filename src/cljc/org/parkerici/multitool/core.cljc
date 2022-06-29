@@ -9,6 +9,7 @@
      (:import (java.util.regex Pattern))))
 
 ;;; Warning: some hacks in here could be considered poor Clojure form. 
+;;; TODO Probably time to split this file into multiple
 
 ;;; ⩇⩆⩇ Memoization ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -49,7 +50,7 @@
   (zipmap (keys @memoizers)
           (map (comp count deref) (vals @memoizers))))
 
-;;; TODO! This and its usages needs to be reworked for CLJS, argh
+;;; TODO! This and its usages needs to be reworked for CLJS (Why?)
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
   [name args & body]
@@ -283,6 +284,36 @@
          :else (recur (next stream) (str re c) curly-depth)))))
 
 
+;;; ⩇⩆⩇ Pattern matching ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(declare lintersection)
+(defn consolidate
+  "Like merge, but if maps provide a value and it isn't =, result is nil"
+  [a b]
+  (when (every? (fn [key] (= (a key) (b key))) 
+                (lintersection (keys a) (keys b)))
+    (merge a b)))
+    
+;;; This must exist? core.match, but not quite
+;;; https://github.com/dcolthorp/matchure
+;;; TODO multivalent match
+(defn pattern-match
+  "Ultra-simple structure pattern matcher. Variables are (? <name>), bindings "
+  [pat thing]
+  (cond (and (list? pat) (= '? (first pat)))
+        (if thing
+          {(keyword (second pat)) thing}
+          nil)
+        (and (sequential? pat)
+             (sequential? thing)
+             (= (count pat) (count thing)))
+        (reduce (fn [a b] (and a b (consolidate a b))) ; 
+                {}
+                (map pattern-match pat thing))
+        (= pat thing) {}
+        :else nil))
+
+
 ;;; ⩇⩆⩇ Keywords and namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn keyword-safe
@@ -342,6 +373,28 @@
 
 ;;; ⩇⩆⩇ Sequences ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn extend-seq
+  "Return a seq padded out to infinity with nils"
+  [seq]
+  (concat seq (repeat nil)))
+
+(defn mapf
+  "Like map but filters out nullish? values"
+  [f & args]
+  (remove nullish? (apply map f args)))
+
+(defmacro forf
+  "Like for but filters out nullish? values"
+  [forms body]
+  `(remove nullish?
+           (for ~forms
+             ~body)))
+
+(defn mapcatf
+  "Like mapcat but filters out nullish? values"
+  [f & args]
+  (remove nullish? (apply mapcat f args)))
+
 (defn doall-safe
   "Realize lazy sequences, if arg is such, otherwise acts as identity"
   [thing]
@@ -354,6 +407,16 @@
   "Remove occurences of elt in seq, applying key-fn before testing if supplied"
   [elt seq & [key-fn]]
   (remove #(= ((or key-fn identity) %) elt) seq))
+
+(defn delete-subseq
+  [seq subseq]
+  (cond (empty? seq)
+        seq
+        (= (take (count subseq) seq) subseq)
+        (drop (count subseq) seq)
+        :else
+        (cons (first seq)
+              (lazy-seq (delete-subseq (rest seq) subseq)))))
 
 (defn positions
   "Returns a list of indexes of coll for which pred is true"
@@ -376,6 +439,14 @@
   "Returns the first index of coll that contains elt"
   [elt coll & [key-fn]]
   (first (positions= elt coll (or key-fn identity))))
+
+(defn subseqs
+  "Returns a seq of all i-length subseqs"
+  [seq i]
+  (if (< (count seq) i) '()
+      (cons (take i seq)
+            (lazy-seq
+             (subseqs (rest seq) i)))))
 
 (defn separate
   "Separate coll into two collections based on pred."
@@ -486,6 +557,7 @@
      (f seq) (cons seq (filter-rest f (rest seq)))
      :else (filter-rest f (rest seq)))))
 
+;;; TODO these want a version that can accept an alternate for >* or compare
 (defn max-by "Find the maximum element of `seq` based on keyfn"
   [keyfn seq]
   (when-not (empty? seq)
@@ -501,6 +573,16 @@
 ;;; Versions of min and max that use generalized compare (and take args in a seq)
 (def min* (partial min-by identity))
 (def max* (partial max-by identity))
+
+(defn- leading-numeral-key
+  [s]
+  (let [[_ num rest] (re-matches #"^([0-9]*)(.*)" s)]
+    [(when-not (empty? num) (coerce-numeric num)) rest]))
+
+(defn sort-with-numeric-prefix
+  "Sort a seq of strings, treating leading numbers in a sane way"
+  [seq]
+  (sort-by (memoize leading-numeral-key) seq))
 
 (defn lunion
   "Compute the union of `lists`"
@@ -537,6 +619,8 @@
    (when-let [s (seq coll)]
      (when (pred s)
        (cons s (rest-while pred (rest s)))))))
+
+
 
 (defn partition-diff
   "Partition coll between v1 and v2 at points for which (f v1 v2) is true"
@@ -635,10 +719,11 @@
   [f coll]  
   (zipmap (map f coll) coll))
 
+;;; TODO this is confusingly named; there are several kinds of multiple to deal with.
+;;; TODO Also no tests, and also should use transients
 (defn index-by-multiple
-  [f coll]
   "Like index-by, but f produces a seq of values rather than a single one"
-  [f coll]  
+  [f coll]
   (reduce
    (fn [ret x]
      (reduce (fn [ret y]
@@ -663,6 +748,7 @@
   (zipmap (map f coll) (map g coll)))
 
 ;;; TODO use transients as in group-by
+;;; wait isn't this the same as index-by-multiple??? Argh.
 (defn group-by-multiple
   "Like group-by, but f produces a seq of values rather than a single one; the orginal value gets grouped with each of them"
   [f coll]  

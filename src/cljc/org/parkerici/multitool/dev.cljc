@@ -5,9 +5,25 @@
 
 ;;; ⩇⩆⩇ Debugging/interaction ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defmacro dbg "Wrap this around an expression; will print expression and value when run."
+(defmacro dbg
+  "Wrap this around an expression; will print expression and value when run."
   [x]
   `(let [x# ~x] (println "dbg:" '~x "=" x#) x#))
+
+  "tag is a keyword, captures is a list of variable names. Wrap this around an execution; the variables will be captured in the stacktrace"
+(defmacro debuggable
+  "tag is a keyword, captures is a list of variable names. Wrap this around an execution; the variables will be captured in the stacktrace"
+  [tag captures & body]
+  `(try
+     ~@body
+     (catch Throwable e#
+         (throw (ex-info ~(str "Debuggable ex " tag) ~(zipmap (map keyword captures) captures) e#)))))
+
+#_
+(let [x 23]
+  (debuggable
+   :test [x]
+   (/ x 0)))
 
 (defn tapr "Print `thing` and  return it as value"
   [thing]
