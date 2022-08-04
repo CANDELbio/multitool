@@ -935,8 +935,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
          (throw (ex-info "value" {:value thing}))))
      thing)
     nil
-    (catch #?{:clj clojure.lang.ExceptionInfo
-              :cljs ExceptionInfo}
+    (catch #?(:clj clojure.lang.ExceptionInfo
+              :cljs ExceptionInfo)
               e
       (:value (ex-data e)))))
 

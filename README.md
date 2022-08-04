@@ -4,7 +4,7 @@ A collection of handy Clojure utilities and language extensions.
 
 Aka [trashy little subroutines](https://github.com/chrislgarry/Apollo-11/blob/422050965990dfa8ad1ffe4ae92e793d7d1ddae5/Luminary099/LUNAR_LANDING_GUIDANCE_EQUATIONS.agc#L1375). 
 
-This has managed to avoid having any dependencies except for those bundles with Clojure. That may change in the future. 
+This has managed to avoid having any dependencies except for those bundled with Clojure. That may change in the future. 
 
 
 
@@ -38,10 +38,37 @@ From a real terminal (not Emacs)
 
     lein deploy clojars
 	
-You will need to supply credentials (user name and  authentication token).
+You will need to supply credentials (user name and authentication token).
 
 
 # Release Notes
+
+## 0.0.23
+
+optional 2nd arg for local-file
+leading-numeral-key → numeric-prefix-sort-key
+add some indent info
+fix cljs issue with walk-fin
+add fix (fixed-point combinator)
+fix math/interpolated to work as one would expect
+added math/divides? and math/prime?
+made math/primes to be much more efficient
+
+
+## 0.0.20 - 0.0.22,
+
+add pattern-match and misc
+aadded ignore-return; fix a bug in prime-factors (affected only performance, not accuracy)
+remove cljcore/random-uuid, now part of clojure.core (as of cclojure 1.11)
+
+
+## 0.0.19,
+
+fix typo, include norvig word file utils
+add memoize-cache
+tweak merge recursive to concat terminal seqs; add collecting-merge
+split browser code from cljscore
+add set unioning to merge-recursive
 
 ## 0.0.18
 
