@@ -574,7 +574,8 @@
 (def min* (partial min-by identity))
 (def max* (partial max-by identity))
 
-(defn- leading-numeral-key
+(defn numeric-prefix-sort-key
+  "Provide a key for sorting strings with leading numbers"
   [s]
   (let [[_ num rest] (re-matches #"^([0-9]*)(.*)" s)]
     [(when-not (empty? num) (coerce-numeric num)) rest]))
@@ -582,7 +583,7 @@
 (defn sort-with-numeric-prefix
   "Sort a seq of strings, treating leading numbers in a sane way"
   [seq]
-  (sort-by (memoize leading-numeral-key) seq))
+  (sort-by (memoize numeric-prefix-sort-key) seq))
 
 (defn lunion
   "Compute the union of `lists`"
@@ -643,6 +644,7 @@
 
 (defmacro doseq*
   "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
+  {:style/indent 1}
   [bindings & body]
   (let [bindings (partition 2 bindings)
         vars (map first bindings)
@@ -657,6 +659,7 @@
 
 (defmacro for*
   "Like for but goes down lists in parallel rather than nested. Assumes lists are same size."
+  {:style/indent 1}
   [bindings & body]
   (let [bindings (partition 2 bindings)
         vars (map first bindings)
@@ -928,11 +931,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (try
     (side-walk
      (fn [thing]
-       (if (f thing)
+       (when (f thing)
          (throw (ex-info "value" {:value thing}))))
      thing)
     nil
-    (catch clojure.lang.ExceptionInfo e
+    (catch #?{:clj clojure.lang.ExceptionInfo
+              :cljs ExceptionInfo}
+              e
       (:value (ex-data e)))))
 
 (defn clean-walk
@@ -966,6 +971,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                    tail))))
 
 ;;; ⩇⩆⩇ Functional ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; See tests for an example
+(defn fix
+  "Fixed-point combinator, useful in conjunction with memoization"
+  [f]
+  (fn g [& args] (apply f g args)))
 
 ;;; See clojure.core/fnil. 
 (defn safely

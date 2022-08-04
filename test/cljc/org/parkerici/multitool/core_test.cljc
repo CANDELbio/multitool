@@ -363,3 +363,10 @@
             :b {:children [:c] :parents #{:a}}
             :c {:parents #{:a :b}}}
          (add-inverse-multiple db :children :parents)))))
+
+(deftest fix-test
+  (let [base-fib (fn [fib i]
+                   (if (< i 2) 1 (+ (fib (- i 1)) (fib (- i 2)))))
+        memoized-fib (fix (memoize base-fib))]
+    ;; If this wasn't memoized, it would take forever
+    (is (= 20365011074 (memoized-fib 50)))))

@@ -10,7 +10,8 @@
 (defn interpolated
   "Return a sequence of n equally-spaced numbers between a and b"
   [a b n]
-  (map #(interpolate a b (/ % (float n))) (range n)))
+  (map #(interpolate a b (/ % (float (- n 1))))
+       (range n)))
 
 (defn rescale
   "Val is a number from interval [from-lower, from-upper], scale it to [to-lower, to-upper]"
@@ -32,12 +33,22 @@
           (iterate #(+ % 2) 3)
           ))))
 
+(defn divides?
+  [a b]
+  (= 0 (rem a b)))
+
+(defn prime?
+  [n]
+  (let [max-f (int (Math/sqrt n))]
+    (not (some #(divides? n %)
+               (take-while #(<= % max-f) primes)))))
+
 ;;; An infinite sequence of factorials
 (def factorials
   (map * (rest (range)) (cons 1 (lazy-seq factorials))))
 
 (defn prime-factors
-  "Prime factors of n (this is a slow and simpleminded method, not recommended for n>1000000)"
+  "Prime factors of n"
   [n]
   (loop [nn n
          [prime & rest-primes :as primes] primes
@@ -45,6 +56,8 @@
     (cond (= nn 1) acc
           (zero? (mod nn prime))
           (recur (/ nn prime) primes (cons prime acc))
+          (prime? nn)
+          (cons nn acc)
           :else
           (recur nn rest-primes acc))))
 

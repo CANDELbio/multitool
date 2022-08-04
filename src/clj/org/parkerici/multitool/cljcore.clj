@@ -118,12 +118,17 @@
     (when-not (.exists f)
       (.mkdirs f))))
 
-
-(defn local-file [url]
-  (let [url (URL. url)
-        tmp (temp-file)]
-    (io/copy (.openStream url) tmp)
-    (.getPath tmp)))
+(defn local-file
+  "Make a copy of contens of url in a local temp file or supplied filename"
+  ([url]
+   (local-file url (temp-file)))
+  ([url local-file]
+   (let [url (URL. url)
+         local-file (if (instance? java.io.File local-file)
+                      local-file
+                      (java.io.File. local-file))]
+     (io/copy (.openStream url) local-file)
+     (str local-file))))
 
 (defn file-lines [file]
   (let [r (io/reader file)]
