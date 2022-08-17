@@ -258,6 +258,8 @@
          (merge-recursive {:a 1} 23)))
   (is (= {:a #{1 2 10 20}}
          (merge-recursive {:a #{1 2}} {:a #{10 20}})))
+  (is (= '{:a [1 2 3 4]}
+         (merge-recursive {:a [1 2]} '{:a [3 4]})))
   (is (= '{:a (1 2 3 4)}
          (merge-recursive {:a [1 2]} '{:a (3 4)})))
   )

@@ -692,6 +692,8 @@
         (merge-with merge-recursive m1 m2)
         (and (set? m1) (set? m2))
         (set/union m1 m2)
+        (and (vector? m1) (vector? m2))
+        (into [] (concat m1 m2))
         (and (sequential? m1) (sequential? m2))
         (concat m1 m2)
         (nil? m2) m1
