@@ -66,6 +66,10 @@
 
 ;;; ⩇⩆⩇ Exception handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn throwable?
+  [x]
+  (instance? x #?(:clj Throwable :cljs js/Error)))
+
 (defmacro ignore-errors
   "Execute `body`; if an exception occurs ignore it and return `nil`. Note: strongly deprecated for production code."
   [& body]
@@ -558,6 +562,7 @@
      :else (filter-rest f (rest seq)))))
 
 ;;; TODO these want a version that can accept an alternate for >* or compare
+;;; Note: (apply clojure.core/max-key seq) is similar
 (defn max-by "Find the maximum element of `seq` based on keyfn"
   [keyfn seq]
   (when-not (empty? seq)
@@ -667,12 +672,6 @@
     `(map (fn ~(into [] vars) ~@body) ~@forms)))
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
-
-;;; TODO should be parallel fns filter-map-values remove-map-values or something like that
-(defn clean-map
-  "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
-  ([map] (clean-map map nullish?))
-  ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
 
 (defn all-keys
   "Given a seq of maps, return the union of all keys"
@@ -808,6 +807,20 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                     (sequencify v)))
           {}
           m)))
+
+(defn clean-map
+  "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
+  ([map] (clean-map map nullish?))
+  ([map pred] (select-keys map (for [[k v] map :when (not (pred v))] k))))
+
+(defn clean-maps
+  "Remove values recursively from 'map' based on applying 'pred' to value (default is `nullish?`). "
+  ([map] (clean-maps nullish? map))
+  ([pred map] (if (map? map)
+                (map-values
+                 (partial clean-maps pred)
+                 (clean-map map pred))
+                map)))
 
 ;;; See also clojure.data/diff
 (defn map-diff

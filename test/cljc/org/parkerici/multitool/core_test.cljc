@@ -323,6 +323,15 @@
   (is (= '(3 4 [a] "hey")
          (clean-seq '(3 nil 4 "" [] [a] "hey")))))
 
+(deftest clean-map-test
+  (is (= {:a 1 :c 3} (clean-map {:a 1 :b nil :c 3})))
+  (is (= {} (clean-map {:a nil}))))
+
+(deftest clean-maps-test
+  (is (= {:a 1 :c 3} (clean-maps {:a 1 :b nil :c 3})))
+  (is (= {} (clean-maps {:a nil})))
+  (is (= {:a 1 :b {:x 1} :c 3} (clean-maps {:a 1 :b {:x 1 :y nil} :c 3}))))
+
 (deftest all-keys-test
   (is (= #{:a :b :c :random}
          (all-keys [{:a 1 :b 2} {:a 3 :c 4} {} {:random :bits}]))))

@@ -1,8 +1,8 @@
-(defproject org.parkerici/multitool "0.0.23"
+(defproject org.parkerici/multitool "0.0.24"
   :description "PICI utility library"
   :url "http://github.com/ParkerICI/multitool"
-  :license {:name "Eclipse Public License"
-            :url "http://www.eclipse.org/legal/epl-v10.html"}
+  :license {:name "MIT License"
+             :url "http://opensource.org/licenses/MIT"}
   :repositories
   [["github" {:url "https://maven.pkg.github.com/ParkerICI/mvn-packages"
               :sign-releases false

@@ -303,3 +303,14 @@
   [uri file]
   (copy-paths uri file))
 
+;;; ⩇⩆⩇ Processes ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn start-periodic-process!
+  "Start a background process to execute thunk f periodically (every t mssc)"
+  [t f]
+  (future
+    (loop []
+      (f)
+      (Thread/sleep t)
+      (recur)))
+  nil)
