@@ -1,4 +1,4 @@
-(defproject org.parkerici/multitool "0.0.24"
+(defproject org.parkerici/multitool "0.0.25"
   :description "PICI utility library"
   :url "http://github.com/ParkerICI/multitool"
   :license {:name "MIT License"

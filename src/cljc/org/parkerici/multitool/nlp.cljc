@@ -19,6 +19,7 @@
 ;;; lowercase and tokenize a string. Punctuation is removed (except for ').
 ;;; \p{L} means match any char of any language.
 ;;; TODO doesn't work at all in cljs
+;;; TODO should have a version that skips lower-casing
 (defn tokens
   [s]
   (map str/lower-case 

@@ -32,7 +32,7 @@ Bump version, and
 
     lein deploy github
 
-# To deply to Clojars
+# To deploy to Clojars
 
 From a real terminal (not Emacs)
 
@@ -41,66 +41,7 @@ From a real terminal (not Emacs)
 You will need to supply credentials (user name and authentication token).
 
 
-# Release Notes
+# License
 
-## 0.0.23
+Relased under MIT license. See the [LICENSE](LICENSE.md) file for details.
 
-optional 2nd arg for local-file
-leading-numeral-key → numeric-prefix-sort-key
-add some indent info
-fix cljs issue with walk-fin
-add fix (fixed-point combinator)
-fix math/interpolated to work as one would expect
-added math/divides? and math/prime?
-made math/primes to be much more efficient
-
-
-## 0.0.20 - 0.0.22,
-
-add pattern-match and misc
-aadded ignore-return; fix a bug in prime-factors (affected only performance, not accuracy)
-remove cljcore/random-uuid, now part of clojure.core (as of cclojure 1.11)
-
-
-## 0.0.19,
-
-fix typo, include norvig word file utils
-add memoize-cache
-tweak merge recursive to concat terminal seqs; add collecting-merge
-split browser code from cljscore
-add set unioning to merge-recursive
-
-## 0.0.18
-
-- added: ordinal-suffix, n-chars, index-by-multiple, update!, collecting, add-inverse[-multiple], collecting
-- added: neighborhood, add-inverse, add-inverse-multiple
-- added copy-paths, download (clj only)
-- renamed threadable to swapped
-- fixed bugs in safe-nth, sequencify
-
-
-## 0.0.17
-
-- add threadable and make pam use it
-- add merge-in
-- add map-key-values and stratify
-- add self-label
-  
-## 0.0.16
-
-- random doc improvements
-- rename memoize-reset → memoize-reset! 
-- add memoizer-stats
-- add pmap-values and pmap-keys
-- renames subst → substitute, to avoid collision with clojure.core
-
-## 0.0.15
-
-- added resettable memoizers
-- added walk-collect and other side-effecting structure walker utilities
-- added trim-chars and other string-cleaning utilities
-- added neighborhood
-- changes to merge-recursive to be less throw-prone
-- added partition-diff
-- added comma-list
-- assorted bug-fixes, cleanups, tests

@@ -161,6 +161,13 @@
      (process-file-lines f in out)
      (rename-file out in))))
 
+(defn substitute-file-lines
+  [map]
+  (partial 
+   process-file-lines
+   (fn [line]
+     (core/str-replace-multiple map line))))
+
 ;;; TODO generalize to more than one form?
 (defn read-from-file
   "Read a form from a file"

@@ -177,11 +177,11 @@
 
 (deftest vectorize-test
   (let [+* (vectorize +)]
-    (is (= (+* 1 2 3) 6))
-    (is (= (+* 1 [4 5 6] 3)
-           [8 9 10]))
-    (is (= (+* [10 20 30] [1 2 3])
-           [11 22 33]))))
+    (is (= 6 (+* 1 2 3)))
+    (is (= [8 9 10]
+           (+* 1 [4 5 6] 3)))
+    (is (= [11 22 33]
+           (+* [10 20 30] [1 2 3])))))
 
 (deftest for*-test
   (is (= '([1 a] [2 b] [3 c])
@@ -189,6 +189,13 @@
                 b '(a b c)]
                [a b]))))
         
+(deftest str-replace-multiple-test
+  (is (= "I like money and barfing on woo."
+         (str-replace-multiple
+          {"food" "money"
+           "goof" "barf"}
+          "I like food and goofing on woo."))))
+
 (deftest re-substitute-test
   ;; Italicize all words that contain "oo"
   (is (= '("I like " [:i "food"] " and " [:i "goofing"] " on " [:i "woo"] ".")

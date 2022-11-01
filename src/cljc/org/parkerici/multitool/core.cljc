@@ -245,6 +245,13 @@
 
 (def template-regex #"\{(.*?)\}")       ;extract the template fields from the entity
 
+(defn str-replace-multiple
+  [map string]
+  (reduce (fn [s [match repl]]
+            (str/replace s match repl))
+          string map))
+
+
 (defn expand-template-string
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
   [template bindings]
@@ -376,6 +383,12 @@
 (def =* (generalize-comparator =))      ;not sure this is ever different from =
 
 ;;; ⩇⩆⩇ Sequences ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn real-vector?
+  "True if thing is a real vector, not a map entry"
+  [thing]
+  (and (vector? thing)
+       (not (map-entry? thing))))
 
 (defn extend-seq
   "Return a seq padded out to infinity with nils"
@@ -538,6 +551,7 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+;;; TODO should probably use coll? and rename
 (defn sequencify
   "Turn thing into a sequence if it already isn't one"
   [thing]
@@ -993,7 +1007,10 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [f]
   (fn g [& args] (apply f g args)))
 
-;;; See clojure.core/fnil. 
+;;; Already in clojure, but I like this name better.
+;;; (defaulted f x) returns a new fn that will substitute x for nil args (f is called on x)
+(def defaulted fnil)
+
 (defn safely
   "Given f, produce new function that permits nulling."
   [f]
@@ -1003,7 +1020,6 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Given f, produce new function that will return nils if exception is thrown. Not recommended for production code"
   [f]
   (fn [x] (ignore-errors (f x))))
-
 
 (defn transitive-closure 
   "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure."
@@ -1033,6 +1049,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
              (range l)))
       (apply f args))))
 
+;;; TODO vectorised functions (+*, -* etc) for all basic arith
+
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; (things that are more for stats or geometry are in org.parkerici.multitool.math)
@@ -1041,6 +1059,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Return a random float between a and b"
   [a b]
   (+ a (* (rand) (- b a))))
+
+(defn rand-range-int
+  "Return a random int between a and b"
+  [a b]
+  (+ a (rand-int (- b a))))
 
 (defn rand-around
   "Return a random float within range of p"
