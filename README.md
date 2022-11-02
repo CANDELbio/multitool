@@ -51,5 +51,5 @@ You will need to supply credentials (user name and authentication token).
 
 # License
 
-Relased under MIT license. See the [LICENSE](LICENSE.md) file for details.
+Relased under Apache 2 license. See the [LICENSE](LICENSE.md) file for details.
 
