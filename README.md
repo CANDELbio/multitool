@@ -4,6 +4,9 @@ A collection of handy Clojure utilities and language extensions.
 
 Aka [trashy little subroutines](https://github.com/chrislgarry/Apollo-11/blob/422050965990dfa8ad1ffe4ae92e793d7d1ddae5/Luminary099/LUNAR_LANDING_GUIDANCE_EQUATIONS.agc#L1375). 
 
+[API Documentation](https://candelbio.github.io/multitool)
+
+
 This has managed to avoid having any dependencies except for those bundled with Clojure. That may change in the future. 
 
 
@@ -39,6 +42,11 @@ From a real terminal (not Emacs)
     lein deploy clojars
 	
 You will need to supply credentials (user name and authentication token).
+
+
+# To build documentation
+
+    lein codox
 
 
 # License
