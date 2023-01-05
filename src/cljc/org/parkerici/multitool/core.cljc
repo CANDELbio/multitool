@@ -17,6 +17,7 @@
 
 ;;; It would probably be cleaner to use the function metadata, but I want to be able
 ;;; to clear them all.
+
 (def memoizers (atom {}))
 
 (defn memoize-named
@@ -63,6 +64,13 @@
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
   [var & body]
   `(def ~var (delay ~@body)))
+
+;;; TODO resettable atoms, maybe integrated with this, maybe separate.
+;;; (def-resettable x (atom {}))
+;;; (reset-resettables) → does the obvious thing
+;;; The idea is that it should be possible to reset to a known state.
+;;; Seems unclojurish
+
 
 ;;; ⩇⩆⩇ Exception handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -127,16 +135,18 @@
   "Coerce thing to a number if possible, otherwise return nil"
   [thing]
   (let [n (coerce-numeric thing)]
-    (and (number? n) n)))
+    (if (number? n) n nil)))
 
 (defn ordinal-suffix
   "The suffix for the ordinal version of n"
   [n]
-  (case (mod n 10)
-    1 "st"
-    2 "nd"
-    3 "rd"
-    "th"))
+  (case n
+    (11 12 13) "th"                     ;gotta be exceptions
+    (case (mod n 10)
+      1 "st"
+      2 "nd"
+      3 "rd"
+      "th")))
 
 (defn ordinal
   "Ordinal string for number n, eg 123 → \"123rd\""
@@ -243,33 +253,37 @@
      ([re s]
       (re-substitute re s identity))))
 
-(def template-regex #"\{(.*?)\}")       ;extract the template fields from the entity
-
 (defn str-replace-multiple
   [map string]
   (reduce (fn [s [match repl]]
             (str/replace s match repl))
           string map))
 
+(def param-regex #"\{(.*?)\}")       ;extract the template fields from the entity
+(def double-braces #"\{\{(.*?)\}\}")
 
-(defn expand-template-string
+;;; Note: default is single braces for parameters {foo}, but :param-regex double-braces option {{foo}} is probably better, works in more contexts.
+;;; TODO option for keyword-based binding map
+(defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
-  [template bindings]
-  (let [matches (->> (re-seq template-regex template) 
+  [template bindings & {:keys [param-regex] :or {param-regex param-regex}}]
+  (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
                             [match (or (bindings key) "")])))]
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
 
+(def expand-template-string expand-template) ;support old name
+
 (defn validate-template
   "Validate a template, defined as in expand-template-string; fields is a set of allowed field names"
-  [template fields]
-  (let [vars (map second (re-seq template-regex template))]
+  [template fields & {:keys [param-regex] :or {param-regex param-regex}}]
+  (let [vars (map second (re-seq param-regex template))]
     (assert (not (empty? vars)) "Template has no {fields}")
     (doseq [var vars]
       (assert (contains? fields var)
-              (str "Template var {" var "} is not defined")))))
+              (str "Template var " var " is not defined")))))
 
 ;;; Stolen from clj-glob, where it is internal 
 (defn glob->regex
@@ -297,17 +311,11 @@
 
 ;;; ⩇⩆⩇ Pattern matching ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(declare lintersection)
-(defn consolidate
-  "Like merge, but if maps provide a value and it isn't =, result is nil"
-  [a b]
-  (when (every? (fn [key] (= (a key) (b key))) 
-                (lintersection (keys a) (keys b)))
-    (merge a b)))
-    
-;;; This must exist? core.match, but not quite
+;;; Ultra-simple pattern matcher.
+;;; Something like this must exist? core.match, but not quite
 ;;; https://github.com/dcolthorp/matchure
 ;;; TODO multivalent match
+(declare lintersection)
 (defn pattern-match
   "Ultra-simple structure pattern matcher. Variables are (? <name>), bindings "
   [pat thing]
@@ -318,14 +326,18 @@
         (and (sequential? pat)
              (sequential? thing)
              (= (count pat) (count thing)))
-        (reduce (fn [a b] (and a b (consolidate a b))) ; 
+        (reduce (fn [a b] 
+                  (when (and a b
+                             (every? (fn [key] (= (a key) (b key)))
+                                     (lintersection (keys a) (keys b))))
+                    (merge a b)))
                 {}
                 (map pattern-match pat thing))
         (= pat thing) {}
         :else nil))
 
 
-;;; ⩇⩆⩇ Keywords and namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+;;; ⩇⩆⩇ Keywords, names, namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn keyword-safe
   "Make a string into a readable keyword by replacing certain punctuation"
@@ -340,6 +352,19 @@
   (swap! key-counter update root #(inc (or % 0)))
   (keyword (namespace root)
            (str (name root) (get @key-counter root))))
+
+(defn safe-name
+  [thing]
+  "name of thing, or nil"
+  (when #?(:clj (instance? clojure.lang.Named thing)
+           :cljs (.-name thing))
+    (name thing)))
+
+(defn bstr
+  "Name or str of thing. Name means 'better str', better in some contexts anyway,"
+  [thing]
+  (or (safe-name thing)
+      (str thing)))
 
 ;;; See https://github.com/brandonbloom/backtick for possibly better solution,
 (defn de-ns
@@ -381,6 +406,17 @@
 (def >=* (generalize-comparator >=))
 (def <=* (generalize-comparator <=))
 (def =* (generalize-comparator =))      ;not sure this is ever different from =
+
+(defn xor
+  "boolean a xor b"
+  [a b]
+  (or (and a (not b))
+      (and b (not a))))
+
+(defn oneof
+  "true if exactly one of its arguments is non-nil."
+  [& things]
+  (= 1 (count (filter identity things))))
 
 ;;; ⩇⩆⩇ Sequences ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -696,7 +732,7 @@
 ;;; Note:
 ;;;   Changed in 0.0.12 to not error if unmergeable
 ;;;   Changed in 0.0.19 to merge terminal sets and sequences
-;;; TODO should take arbitary # of args like merge
+;;; TODO should take arbitary # of args like merge and merge-with
 ;;; TODO should be able to specify how to merge terminals. 
 (defn merge-recursive
   "Merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
@@ -983,7 +1019,18 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                  struct))
 
 
-;;; ⩇⩆⩇ Sets ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+;;; ⩇⩆⩇ Sets and Bags ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn set=
+  "True if c1 and c2 are equal considered as sets"
+  [c1 c2]
+  (= (set c1) (set c2)))
+
+(defn bag=
+  "True if c1 and c2 are equal considered as bags"
+  [c1 c2]
+  (and (= (count c1) (count c2))
+       (set= c1 c2)))
 
 (defn sconj
   "Like conj but will always create a set."

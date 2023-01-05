@@ -1,7 +1,8 @@
 (ns org.parkerici.multitool.cljcore-test
   (:require [clojure.string :as str])
   (:use clojure.test)
-  (:use org.parkerici.multitool.cljcore))
+  (:use org.parkerici.multitool.cljcore)
+  (:use org.parkerici.multitool.core))
 
 (deftest parse-long-or-nil-test
   (is (nil? (parse-long-or-nil nil)))
@@ -23,4 +24,25 @@
              (first out-lines)))
       (is (= 3 (count (filter #(str/includes? % "weird") out-lines)))))))
 
-   
+(deftest pdoseq-test
+  (let [acc (atom nil)]
+    ;; Doing this with regular doseq would (a) produce a sorted list (b) take a lot longer
+    (pdoseq [i (range 100)]
+            (Thread/sleep (long (rand-int 100)))
+            (swap! acc conj i))
+    (Thread/sleep 100)
+    (is (= 100 (count @acc)))
+    (is (= 4950 (reduce + @acc)))
+    ;; order should be scrambled (guess there is a very small chance it won't be!)
+    (is (not (= (range 100) @acc)))))
+
+(deftest pdoseq*-test
+  (let [acc (atom nil)]
+    (pdoseq* [i '(a b c)
+              j '(x y z)]
+            (Thread/sleep (long (rand-int 100)))
+            (swap! acc conj (vector i j)))
+    (Thread/sleep 100)
+    (is (= 3 (count @acc)))
+    (is (set= @acc '[[a x] [b y] [c z]]))
+    ))

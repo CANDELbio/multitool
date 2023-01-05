@@ -43,7 +43,7 @@
     (not (some #(divides? n %)
                (take-while #(<= % max-f) primes)))))
 
-;;; An infinite sequence of factorials
+;;; An infinite sequence of factorials. Not that useful, it blows out at around 30.
 (def factorials
   (map * (rest (range)) (cons 1 (lazy-seq factorials))))
 
@@ -87,7 +87,7 @@
   (* r (/ 180 Math/PI)))
 
 (defn d2r
-  "Convert radians to degrees"
+  "Convert degrees to radians"
   [d]
   (* d (/ Math/PI 180)))
 
