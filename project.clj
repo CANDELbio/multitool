@@ -1,6 +1,6 @@
-(defproject org.parkerici/multitool "0.0.25"
+(defproject org.parkerici/multitool "0.0.26"
   :description "PICI utility library"
-  :url "http://github.com/ParkerICI/multitool"
+  :url "https://github.com/CANDELbio/multitool"
   :license {:name "Apache 2 License"
              :url "https://opensource.org/licenses/Apache-2.0"}
   :deploy-repositories [["clojars" {:sign-releases false}]]

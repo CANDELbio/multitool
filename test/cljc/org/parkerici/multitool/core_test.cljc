@@ -69,6 +69,17 @@
     (is (= '((a b c d) (b c d e)) (subseqs seq5 4)))
     (is (= '() (subseqs seq5 10)))))
 
+(deftest set=-test
+  (is (set= '(a b c) '(c b a)))
+  (is (not (set= '(a b c) '(c b d))))
+  (is (set= '(a b c) '(c b a c))))
+
+(deftest bag=-test
+  (is (bag= '(a b c) '(c b a)))
+  (is (not (bag= '(a b c) '(c b d))))
+  (is (not (bag= '(a b c) '(c b a c))))
+  (is (bag= '(a c b c) '(c b a c))))
+
 (deftest powerset-test
 
   (is (= #{#{} #{3} #{2} #{1} #{1 3 2} #{1 3} #{1 2} #{3 2}}
@@ -120,42 +131,49 @@
     (is (= "call" (min* words)))
     (is (= "you" (max* words)))))
 
-(defn rcons [a b] (cons b a))
-
 (deftest doseq*-test
   (let [acc (atom '())]
     (doseq* [a '(1 2 3)
              b '(x y z)]
-            (swap! acc rcons (list a b)))
+            (swap! acc conj (list a b)))
     (= '((1 x) (2 y) (3 z))
        (reverse @acc)))
   ;; TODO seqs of different length
   )
 
-(deftest expand-template-string-test
+(deftest expand-template-test
   (let [template "The {foo} must have {bar}!"
-        ent1 {"foo" "subgenius" "bar" "slack"}
-        ent2 {"foo" "dog"}]
+        bindings1 {"foo" "subgenius" "bar" "slack"}
+        bindings2 {"foo" "dog"}]
     (is (= "The subgenius must have slack!"
-           (expand-template-string template ent1)))
+           (expand-template template bindings1)))
     (is (= "The dog must have !"
-           (expand-template-string template ent2)))))
-
-(deftest consolidate-test
-  (is (= {:a 1 :b 2} (consolidate {:a 1} {:b 2})))
-  (is (= {:a 1} (consolidate {:a 1} {:a 1})))
-  (is (= nil (consolidate {:a 1} {:a 2}))))
+           (expand-template template bindings2))))
+  (testing "Double braces"
+    (let [template "The {{foo}} must have {{bar}}!"
+        bindings1 {"foo" "subgenius" "bar" "slack"}
+        bindings2 {"foo" "dog"}]
+    (is (= "The subgenius must have slack!"
+           (expand-template template bindings1 :param-regex double-braces)))
+    (is (= "The dog must have !"
+           (expand-template template bindings2 :param-regex double-braces))))
+    )
+  )
 
 (deftest pattern-match-test
-  (is (= {} (pattern-match '(a 1) '(a 1))))
-  (is (= nil (pattern-match '(a 1) '(a 2))))
-  (is (= {:var 2} (pattern-match '(a (? var)) '(a 2))))
-  (is (= nil (pattern-match '(a (? var)) '(a))))
-  (is (= nil (pattern-match '(a b c) '(a))))
-  (is (= nil (pattern-match '(a) '(a b c) ))) ;TODO not working I think
-  (is (= '{:a x :b y} (pattern-match '((? a) (? b)) '(x y) )))
-  (is (= '{:a x} (pattern-match '((? a) (? a)) '(x x))))
-  (is (= nil (pattern-match '((? a) (? a)) '(x y) ))))
+  (testing "basics"
+    (is (= {} (pattern-match '(a 1) '(a 1))))
+    (is (= nil (pattern-match '(a 1) '(a 2))))
+    (is (= nil (pattern-match '(a) '(a b c) ))) ;TODO not working I think  
+    (is (= nil (pattern-match '(a b c) '(a)))))
+  (testing "binding"
+    (is (= {:var 2} (pattern-match '(a (? var)) '(a 2))))
+    (is (= nil (pattern-match '(a (? var)) '(a))))
+    (is (= {:var 1} (pattern-match '((? var) x (? var)) '(1 x 1))))
+    (is (= nil (pattern-match '((? var) x (? var)) '(1 x 2))))
+    (is (= '{:a x :b y} (pattern-match '((? a) (? b)) '(x y))))
+    (is (= '{:a x} (pattern-match '((? a) (? a)) '(x x))))
+    (is (= nil (pattern-match '((? a) (? a)) '(x y) )))))
 
 (deftest uncollide-test
   (is (= '(1 2 3) (uncollide '(1 2 3))))
@@ -164,11 +182,11 @@
   (is (= '("a-1-1" "b") (uncollide '("a" "b") :existing '("a" "a-1") :new-key-fn #(str % "-1"))))
   )
 
-(deftest ignore-errors-normal-test
-  (is (= 7 (ignore-errors (+ 3 4)))))
-
-(deftest ignore-errors-rror-test
-  (is (= nil (ignore-errors (/ 0 0) (+ 3 4)))))
+(deftest ignore-errors-test
+  (testing "normal"
+    (is (= 7 (ignore-errors (+ 3 4)))))
+  (testing "error"
+    (is (= nil (ignore-errors (/ 0 0) (+ 3 4))))))
 
 (deftest error-handling-fn-test
   (let [ed (error-handling-fn /)]
@@ -224,6 +242,15 @@
   (is (= "foo" (coerce-numeric "foo")))
   (is (= "" (coerce-numeric "")))
   (is (= + (coerce-numeric +)))
+  )
+
+(deftest coerce-numeric-hard-test
+  (is (nil? (coerce-numeric-hard nil)))
+  (is (= 23 (coerce-numeric-hard 23)))
+  (is (= 23 (coerce-numeric-hard "23")))
+  (is (= nil (coerce-numeric-hard "foo")))
+  (is (= nil (coerce-numeric-hard "")))
+  (is (= nil (coerce-numeric-hard +)))
   )
 
 ;;; from Blood Meridian, Cormac McCarthy

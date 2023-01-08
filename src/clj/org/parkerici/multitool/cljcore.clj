@@ -28,6 +28,23 @@
   [f hashmap]
   (zipmap (pmap f (keys hashmap)) (vals hashmap)))
 
+(defmacro pdoseq
+  "Like doseq but each iteration gets its own thread."
+  [seqs & body]
+  `(doseq ~seqs
+     (doto (Thread.
+            (fn [] ~@body))
+       (.setDaemon true)
+       (.start))))
+
+(defmacro pdoseq*
+  "Like doseq* but each iteration gets its own thread."
+  [seqs & body]
+  `(core/doseq* ~seqs
+     (doto (Thread.
+            (fn [] ~@body))
+       (.setDaemon true)
+       (.start))))
 
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -57,6 +74,14 @@
 ;;; ⩇⩆⩇ Files ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; Note: probably better to avoid these and use raynes/fs https://github.com/Raynes/fs
+
+(defn list-dir-recursive
+  "Like fs/list-dir, but recurses through subdirectories (and does not include subdirs in result)"
+  [dir]
+  (remove #(.isDirectory %)
+          (tree-seq #(.isDirectory %)
+                    #(.listFiles %)
+                    (io/file dir))))
 
 (defn content-files
   [dir & regex]
