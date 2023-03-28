@@ -1,8 +1,8 @@
-(ns org.parkerici.multitool.cljcore-test
+(ns org.candelbio.multitool.cljcore-test
   (:require [clojure.string :as str])
   (:use clojure.test)
-  (:use org.parkerici.multitool.cljcore)
-  (:use org.parkerici.multitool.core))
+  (:use org.candelbio.multitool.cljcore)
+  (:use org.candelbio.multitool.core))
 
 (deftest parse-long-or-nil-test
   (is (nil? (parse-long-or-nil nil)))

@@ -1,4 +1,4 @@
-(ns org.parkerici.multitool.cljscore)
+(ns org.candelbio.multitool.cljscore)
 
 ;;; Clojurescript utilities (note: these are mostly crap)
 

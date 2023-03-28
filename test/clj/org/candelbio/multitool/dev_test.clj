@@ -1,8 +1,8 @@
-(ns org.parkerici.multitool.dev-test
+(ns org.candelbio.multitool.dev-test
   (:use clojure.test)
-  (:use org.parkerici.multitool.dev)
-  (:require [org.parkerici.multitool.cljcore :as ju]
-            [org.parkerici.multitool.clj-testing :as testing]
+  (:use org.candelbio.multitool.dev)
+  (:require [org.candelbio.multitool.cljcore :as ju]
+            [org.candelbio.multitool.clj-testing :as testing]
             ))
 
 (deftest capture-to-file-test

@@ -1,7 +1,7 @@
-(ns org.parkerici.multitool.norvig
+(ns org.candelbio.multitool.norvig
   (:require [clojure.java.io :as io]
             [clojure.string :as s]
-            [org.parkerici.multitool.core :as u]
+            [org.candelbio.multitool.core :as u]
             ))
 
 ;;; Conveniet access to Norvig's ngram files. 
