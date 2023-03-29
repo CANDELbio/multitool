@@ -1,9 +1,9 @@
-(ns org.parkerici.multitool.core-test
+(ns org.candelbio.multitool.core-test
   (:use clojure.test)
-  (:use org.parkerici.multitool.core)
+  (:use org.candelbio.multitool.core)
   (:require [clojure.string :as str]
-            [org.parkerici.multitool.nlp :as nlp]
-            [org.parkerici.multitool.math :as math]))
+            [org.candelbio.multitool.nlp :as nlp]
+            [org.candelbio.multitool.math :as math]))
 
 (deftest memoize-named-test
   (let [counter (atom 0)

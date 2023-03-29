@@ -1,6 +1,6 @@
-(ns org.parkerici.multitool.nlp
+(ns org.candelbio.multitool.nlp
   (:require [clojure.string :as str]
-            [org.parkerici.multitool.core :as core]))
+            [org.candelbio.multitool.core :as core]))
 
 ;;; Source: http://rosettacode.org/wiki/Levenshtein_distance#Clojure
 ;;; can be extremely slow eg (levenshtein "restaurant" "restoration")

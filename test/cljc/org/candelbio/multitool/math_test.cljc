@@ -1,5 +1,5 @@
-(ns org.parkerici.multitool.math-test
-  (:require [org.parkerici.multitool.math :refer :all]
+(ns org.candelbio.multitool.math-test
+  (:require [org.candelbio.multitool.math :refer :all]
             #?(:clj [clojure.test :refer :all]
                :cljs [cljs.test :as t :include-macros true])))
 

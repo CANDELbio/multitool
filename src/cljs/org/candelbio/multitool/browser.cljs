@@ -1,5 +1,5 @@
-(ns org.parkerici.multitool.browser
-  (:require [org.parkerici.multitool.cljscore :as core]))
+(ns org.candelbio.multitool.browser
+  (:require [org.candelbio.multitool.cljscore :as core]))
 
 ;;; ⩇⩆⩇ Browser-specific ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

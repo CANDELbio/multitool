@@ -1,11 +1,11 @@
-(ns org.parkerici.multitool.cljcore
+(ns org.candelbio.multitool.cljcore
   "Java-only stuff"
   (:require
    [clojure.string :as str]
    [clojure.pprint :as pprint]
    [clojure.java.io :as io]
    [clojure.java.shell :as shell]
-   [org.parkerici.multitool.core :as core])
+   [org.candelbio.multitool.core :as core])
   (:import [java.util Base64 Date]
            [java.io File Reader PushbackReader]
            [java.nio.file Files]

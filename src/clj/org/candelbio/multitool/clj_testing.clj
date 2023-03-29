@@ -1,4 +1,4 @@
-(ns org.parkerici.multitool.clj-testing)
+(ns org.candelbio.multitool.clj-testing)
 
 ;;; Useful functions for writing tests
 

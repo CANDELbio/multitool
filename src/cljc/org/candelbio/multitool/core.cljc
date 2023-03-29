@@ -1,4 +1,4 @@
-(ns org.parkerici.multitool.core
+(ns org.candelbio.multitool.core
   "Various generally useful utilities"
   (:require
    [clojure.string :as str]
@@ -873,6 +873,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                 map)))
 
 ;;; See also clojure.data/diff
+;;; The result of this is way too verbose
 (defn map-diff
   "Returns a recursive diff of two maps, which you will want to prettyprint."
   [a b]
@@ -1100,7 +1101,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; (things that are more for stats or geometry are in org.parkerici.multitool.math)
+;;; (things that are more for stats or geometry are in org.candelbio.multitool.math)
 
 (defn rand-range
   "Return a random float between a and b"

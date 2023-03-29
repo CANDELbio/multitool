@@ -1,4 +1,4 @@
-(ns org.parkerici.multitool.dev
+(ns org.candelbio.multitool.dev
   "Utility functions for development only"
   (:require clojure.pprint)
   )

@@ -1,6 +1,6 @@
-(ns org.parkerici.multitool.nlp-test
+(ns org.candelbio.multitool.nlp-test
   (:use clojure.test)
-  (:use org.parkerici.multitool.nlp)
+  (:use org.candelbio.multitool.nlp)
   (:require [clojure.string :as str]))
 
 (deftest token-test                     ; in more ways than one!
