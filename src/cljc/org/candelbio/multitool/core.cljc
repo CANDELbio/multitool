@@ -1019,6 +1019,37 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                     %)
                  struct))
 
+(defn side-walk-paths
+  ([f form path]
+   (do 
+     (f form path)
+     (cond
+       (map? form)
+       (doseq [k (keys form)]
+         (side-walk-paths f (get form k) (conj path k)))
+       (sequential? form)
+       (doseq* [elt form i (range)]
+         (side-walk-paths f elt (conj path i))))))
+  ([f form]
+   (side-walk-paths f form [])))
+
+(defn side-walk-find-paths
+  [pred form]
+  (collecting
+   (fn [collector]
+     (side-walk-paths
+      (fn [thing path]
+        (when (pred thing)
+          (collector path)))
+      form))))
+
+(comment
+  (def x {:a 1 :b {:c 2 :d 3 :e [1 7 2 4] :f [{:x 1} {:y 2}]}})
+  (side-walk-find-paths (fn [thing] (and (number? thing) (even? thing))) x)
+
+  [[:b :c] [:b :e 2] [:b :e 3] [:b :f 1 :y]]
+  )
+
 
 ;;; ⩇⩆⩇ Sets and Bags ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
