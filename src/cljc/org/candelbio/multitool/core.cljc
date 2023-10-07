@@ -721,6 +721,10 @@
         forms (map second bindings)]
     `(map (fn ~(into [] vars) ~@body) ~@forms)))
 
+(defmacro forcat
+  [vars body]
+  `(apply concat (for ~vars ~body)))
+
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn all-keys

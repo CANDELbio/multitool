@@ -206,6 +206,11 @@
          (for* [a '(1 2 3)
                 b '(a b c)]
                [a b]))))
+
+(deftest forcat-test
+  (is (= '(1 2 3 7 8 9)
+         (forcat [a [[1 2 3] [7 8] [9]]]
+            a))))
         
 (deftest str-replace-multiple-test
   (is (= "I like money and barfing on woo."
