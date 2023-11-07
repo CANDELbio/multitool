@@ -259,17 +259,18 @@
             (str/replace s match repl))
           string map))
 
-(def param-regex #"\{(.*?)\}")       ;extract the template fields from the entity
+(def param-regex #"\{(.*?)\}")          ;extract the template fields from the entity
 (def double-braces #"\{\{(.*?)\}\}")
+(def javascript-templating #"\$\{(.*?)\}")
 
 ;;; Note: default is single braces for parameters {foo}, but :param-regex double-braces option {{foo}} is probably better, works in more contexts.
-;;; TODO option for keyword-based binding map
+;;; :param-regex javascript-templating for compatibility with javascript templating ${foo}
 (defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
-  [template bindings & {:keys [param-regex] :or {param-regex param-regex}}]
+  [template bindings & {:keys [param-regex key-fn] :or {param-regex param-regex key-fn identity}}]
   (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
-                            [match (or (bindings key) "")])))]
+                            [match (or (bindings (key-fn key)) "")])))]
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))

@@ -151,13 +151,19 @@
            (expand-template template bindings2))))
   (testing "Double braces"
     (let [template "The {{foo}} must have {{bar}}!"
-        bindings1 {"foo" "subgenius" "bar" "slack"}
-        bindings2 {"foo" "dog"}]
-    (is (= "The subgenius must have slack!"
-           (expand-template template bindings1 :param-regex double-braces)))
-    (is (= "The dog must have !"
-           (expand-template template bindings2 :param-regex double-braces))))
+          bindings1 {"foo" "subgenius" "bar" "slack"}
+          bindings2 {"foo" "dog"}]
+      (is (= "The subgenius must have slack!"
+             (expand-template template bindings1 :param-regex double-braces)))
+      (is (= "The dog must have !"
+             (expand-template template bindings2 :param-regex double-braces))))
     )
+  (testing "Javascript templating, keywords"
+    (let [template "The ${foo} must have ${bar}!"
+          bindings1 {:foo "subgenius" :bar "slack"}]
+      (is (= "The subgenius must have slack!"
+             (expand-template template bindings1 :param-regex javascript-templating :key-fn keyword)))
+      ))
   )
 
 (deftest pattern-match-test
