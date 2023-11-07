@@ -185,6 +185,7 @@
 
 ;;; see str/trim, str/triml, str/trimr,
 ;;; but these let you specify the character set to trim
+;;; TODO should use regexs rather than charsets
 (defn trim-chars-left
   "Removes every character of a given set from the left end of a string"
   [removed s]
@@ -205,7 +206,7 @@
         ""
         (if (contains? removed (.charAt s index))
           (recur (- index 1))
-          (subs s 0 index))))))
+          (subs s 0 (+ index 1)))))))
 
 (defn trim-chars
   "Removes every character of a given set from the ends of a string"
@@ -214,6 +215,8 @@
     (->> s
          (trim-chars-left removed)
          (trim-chars-right removed))))
+
+(def punc-chars (set "`~!@#$%^&*()_+=-[]\\{}|;'\":/.,<>? "))
 
 (declare clean-seq)
 (defn comma-list

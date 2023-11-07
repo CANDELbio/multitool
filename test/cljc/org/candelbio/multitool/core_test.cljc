@@ -426,3 +426,9 @@
         memoized-fib (fix (memoize base-fib))]
     ;; If this wasn't memoized, it would take forever
     (is (= 20365011074 (memoized-fib 50)))))
+
+(deftest trim-chars-test
+  (is (= "foo" (trim-chars punc-chars " foo, ")))
+  (is (= "bar" (trim-chars punc-chars "bar")))
+  (is (= "" (trim-chars punc-chars "")))
+  (is (= "" (trim-chars punc-chars " "))))
