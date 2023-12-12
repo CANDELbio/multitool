@@ -28,6 +28,8 @@
   [f hashmap]
   (zipmap (pmap f (keys hashmap)) (vals hashmap)))
 
+;;; TODO these are useless, a good way to crash a machine. But a version that limited itself to n threads might be good.
+;;; TODO pmap does the right thing (pays attention to available cores) so redo based on that.
 (defmacro pdoseq
   "Like doseq but each iteration gets its own thread."
   [seqs & body]
@@ -45,6 +47,11 @@
             (fn [] ~@body))
        (.setDaemon true)
        (.start))))
+
+(defn processors
+  "Return the number of available processors"
+  []
+  (.availableProcessors (java.lang.Runtime/getRuntime)))
 
 ;;; ⩇⩆⩇ Exceptions ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -79,15 +86,14 @@
   "Like fs/list-dir, but recurses through subdirectories (and does not include subdirs in result)"
   [dir]
   (remove #(.isDirectory %)
-          (tree-seq #(.isDirectory %)
-                    #(.listFiles %)
-                    (io/file dir))))
+          (file-seq (io/as-file dir))))
 
+;;; Deprecated
 (defn content-files
   [dir & regex]
-  (filter #(and (not (.isDirectory ^File %))
-                (or (empty? regex) (re-find (first regex) (str %))))
-          (file-seq (io/file dir))))
+  (filter #(or (empty? regex)
+               (re-find (first regex) (str %))))
+          (list-dir-recursive dir))
 
 (defn file-exists?
   "True if file `path` exists"
@@ -109,9 +115,6 @@
   [fname]
   (when (file-exists? fname)
     (file-delete-recursively fname)))
-
-;;; TODO list files recursively, fs/ doesn't support directly
-
 
 ;;; http://stackoverflow.com/questions/840190/changing-the-current-working-directory-in-java
 (defn cd "As in Unix shell cd"
@@ -163,7 +166,8 @@
   (let [w (io/writer file)]
     (binding [*out* w]
       (doseq [l seq]
-        (println l)))))
+        (println l))
+      (newline))))
 
 ;;; Copied from fs to avoid a dependency
 (defn- tmp-file
@@ -236,24 +240,53 @@
 
 ;;; ⩇⩆⩇ Shell ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; TODO combine these two into one thing that works
+
 (defn sh-errchecked [& args]
-  (let [res (apply shell/sh args)]
-    (when-not (= (:exit res) 0)
-      (throw (ex-info "Bad result from shell" res))
-      )))
+  (let [{:keys [exit out] :as res} (apply shell/sh args)]
+    (when-not (= exit 0)
+      (throw (ex-info "Shell error" res)))
+    out))
+
+(defn sh-str
+  "Version of sh that takes a single string, which can include pipe operators etc"
+  [s]
+  (shell/sh "/bin/bash" "-c" s))
 
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn read-tsv-file
+;;; Very simple tab file i/o. Not sophisticated and won't handle some cases, use clojure.data.csv for real work
+
+(defn read-tsv-rows
+  "Read a tsv file into vectors"
+  [f]
+  (map #(str/split % #"	")
+       (file-lines f)))
+
+(defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
   [f]
-  (let [raw (file-lines f)
-        fields (str/split (first raw) #"\t")]
-    (map (fn [l]
-           (core/clean-map
-            (zipmap fields (str/split l #"\t"))
-            #(= % "")))
-         (rest raw))))
+  (let [rows (read-tsv-rows f)]
+    (map #(zipmap (first rows) %)
+         (rest rows))))
+
+(defn write-tsv-rows
+  [f rows]
+  (file-lines-out
+   f
+   (map (partial str/join \tab) rows)))
+
+(defn write-tsv-maps
+  [f rows]
+  (let [cols (keys (first rows))]
+  (file-lines-out
+   f
+   (map (partial str/join \tab)
+        (cons (map name cols)
+              (map (fn [row] (map (fn [col] (get row col)) cols))
+                   rows))))))
+
+;;; TODO parallel fns for .csv
 
 (defn open-url
   [url]
