@@ -141,6 +141,16 @@
   ;; TODO seqs of different length
   )
 
+(deftest re-seq-positions-test
+  (is (= [[7 10] [13 16] [28 31]]
+         (re-seq-positions #"foo" "I like food, fooseball, and foolishness.")))
+  (is (= [[6 9] [15 16] [29 34]]
+         (re-seq-positions #"\((-*)\)" "This (---) is (-) something (-----) else" 1)))
+  (is (= []
+         (re-seq-positions #"\((-*)\)" "nada"))))
+
+;;; TODO would make sense to have a re-seq variant that could return groups
+
 (deftest expand-template-test
   (let [template "The {foo} must have {bar}!"
         bindings1 {"foo" "subgenius" "bar" "slack"}
@@ -151,13 +161,19 @@
            (expand-template template bindings2))))
   (testing "Double braces"
     (let [template "The {{foo}} must have {{bar}}!"
-        bindings1 {"foo" "subgenius" "bar" "slack"}
-        bindings2 {"foo" "dog"}]
-    (is (= "The subgenius must have slack!"
-           (expand-template template bindings1 :param-regex double-braces)))
-    (is (= "The dog must have !"
-           (expand-template template bindings2 :param-regex double-braces))))
+          bindings1 {"foo" "subgenius" "bar" "slack"}
+          bindings2 {"foo" "dog"}]
+      (is (= "The subgenius must have slack!"
+             (expand-template template bindings1 :param-regex double-braces)))
+      (is (= "The dog must have !"
+             (expand-template template bindings2 :param-regex double-braces))))
     )
+  (testing "Javascript templating, keywords"
+    (let [template "The ${foo} must have ${bar}!"
+          bindings1 {:foo "subgenius" :bar "slack"}]
+      (is (= "The subgenius must have slack!"
+             (expand-template template bindings1 :param-regex javascript-templating :key-fn keyword)))
+      ))
   )
 
 (deftest pattern-match-test

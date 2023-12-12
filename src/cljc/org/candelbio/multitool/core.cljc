@@ -51,7 +51,7 @@
   (zipmap (keys @memoizers)
           (map (comp count deref) (vals @memoizers))))
 
-;;; TODO! This and its usages needs to be reworked for CLJS (Why?)
+;;; TODO This and its usages needs to be reworked for CLJS (Why? Macros probably)
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
   [name args & body]
@@ -215,6 +215,9 @@
          (trim-chars-left removed)
          (trim-chars-right removed))))
 
+;;; TODO some charsets, esp punc.
+(def punc-chars (set "`~!@#$%^&*()_+=-[]\\{}|;'\":/.,<>? "))
+
 (declare clean-seq)
 (defn comma-list
   "Splice the non-nullish elements of list together in a string, separated by ', '"
@@ -234,6 +237,16 @@
   "Return a regex that will match the literal string"
   [string]
   (re-pattern (re-quote string)))
+
+;;; Based on clojure.core/re-seq
+(defn re-seq-positions
+  "Returns a lazy sequence of successive matches of pattern in string, returning [start end] pairs"
+  [^java.util.regex.Pattern re s & [group]]
+  (let [m (re-matcher re s)]
+    (loop [result []]
+      (if (.find m)
+        (recur (conj result [(.start m (or group 0)) (.end m (or group 0))]))
+        result))))
 
 ;;; TODO make a cljs version
 ;;; Note: clojure.string/replace is very close to this, but it returns a string instead of fragments.
@@ -259,17 +272,18 @@
             (str/replace s match repl))
           string map))
 
-(def param-regex #"\{(.*?)\}")       ;extract the template fields from the entity
+(def param-regex #"\{(.*?)\}")          ;extract the template fields from the entity
 (def double-braces #"\{\{(.*?)\}\}")
+(def javascript-templating #"\$\{(.*?)\}")
 
 ;;; Note: default is single braces for parameters {foo}, but :param-regex double-braces option {{foo}} is probably better, works in more contexts.
-;;; TODO option for keyword-based binding map
+;;; :param-regex javascript-templating for compatibility with javascript templating ${foo}
 (defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
-  [template bindings & {:keys [param-regex] :or {param-regex param-regex}}]
+  [template bindings & {:keys [param-regex key-fn] :or {param-regex param-regex key-fn identity}}]
   (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
-                            [match (or (bindings key) "")])))]
+                            [match (or (bindings (key-fn key)) "")])))]
     (reduce (fn [s [match key]]
               (str/replace s (re-pattern-literal match) (str key)))
             template matches)))
@@ -721,9 +735,17 @@
         forms (map second bindings)]
     `(map (fn ~(into [] vars) ~@body) ~@forms)))
 
+;;; TODO figure out way to make emacs indent work
 (defmacro forcat
   [vars body]
   `(apply concat (for ~vars ~body)))
+
+;;; ⩇⩆⩇ Vectors ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn lconj
+  "Conj a value to the front (left) of vector. Not performant"
+  [v e]
+  (vec (cons e v)))
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -878,6 +900,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; See also clojure.data/diff
 ;;; The result of this is way too verbose
+;;; TODO generalize to >2 args
 (defn map-diff
   "Returns a recursive diff of two maps, which you will want to prettyprint."
   [a b]
@@ -1105,7 +1128,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (fn [x] (ignore-errors (f x))))
 
 (defn transitive-closure 
-  "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure."
+  "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure of f."
   [f]
   (fn [root]
     (loop [done (set nil)
