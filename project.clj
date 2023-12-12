@@ -4,7 +4,7 @@
   :license {:name "Apache 2 License"
              :url "https://opensource.org/licenses/Apache-2.0"}
   :deploy-repositories [["clojars" {:sign-releases false}]]
-  :dependencies [[org.clojure/clojure "1.10.1"]]
+  :dependencies [[org.clojure/clojure "1.10.2"]]
   :source-paths ["src/cljc" "src/clj" "src/cljs"]
   :test-paths ["test/cljc" "test/clj"]  ;TODO cljs testing
   :plugins [[lein-codox "0.10.8"]]

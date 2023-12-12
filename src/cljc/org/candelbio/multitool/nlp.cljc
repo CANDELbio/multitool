@@ -38,7 +38,7 @@
 
 (defn remove-numbers
   [tokenized]
-  (remove (partial re-matches #"\d+") tokenized))
+  (remove (partial re-matches #"[\d\-]+") tokenized))
 
 (defn remove-shorts
   [tokenized]
