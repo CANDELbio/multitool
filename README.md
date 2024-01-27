@@ -27,6 +27,11 @@ This has managed to avoid having (almost) any dependencies except for Clojure it
 
 https://github.com/weavejester/medley
 
+# Testing
+
+    lein test    # clj tests
+	lein doo    # cljs tests
+
 # To deploy to Clojars
 
 From a real terminal (not Emacs)

@@ -1,5 +1,6 @@
+;;; Ideally merge this with the clj tests as a cljc file, but for now doing it separately
+
 (ns org.candelbio.multitool.core-test
-  #_ (:use org.candelbio.multitool.core)
   (:require [cljs.test :refer-macros [deftest is testing run-tests]]
             [org.candelbio.multitool.core :as sut :refer-macros [ignore-errors doseq* for* forcat]]
             [clojure.string :as str]
@@ -176,6 +177,7 @@
   (testing "Javascript templating, keywords"
     (let [template "The ${foo} must have ${bar}!"
           bindings1 {:foo "subgenius" :bar "slack"}]
+      ;; TODO failing for unknown reason. Works in REPL
       (is (= "The subgenius must have slack!"
              (sut/expand-template template bindings1 :param-regex sut/javascript-templating :key-fn keyword)))
       ))

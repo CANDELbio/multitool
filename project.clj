@@ -21,7 +21,7 @@
                                    :main org.candelbio.multitool.runner
                                    :pretty-print true}}]}
   :doo {:build "test"
-        :alias {:default [:lumo]}}
+        :alias {:default [:planck]}}
   :codox {:output-path "docs"
           :metadata {:doc/format :markdown}
           :source-uri "http://github.com/CANDELbio/multitool/blob/master/{filepath}#L{line}"}
