@@ -7,7 +7,7 @@ Aka [trashy little subroutines](https://github.com/chrislgarry/Apollo-11/blob/42
 [API Documentation](https://candelbio.github.io/multitool)
 
 
-This has managed to avoid having any dependencies except for Clojure itself. That may change in the future. 
+This has managed to avoid having (almost) any dependencies except for Clojure itself. 
 
 
 ![Multitool](https://ae01.alicdn.com/kf/HTB1Z4FMaOLxK1Rjy0Ffq6zYdVXaA/2019-New-Design-Multi-Tools-Plier-Folding-Knife-Survival-Multitool-Outdoor-EDC-Gear-Camping-Fishing-Tool.jpg)
