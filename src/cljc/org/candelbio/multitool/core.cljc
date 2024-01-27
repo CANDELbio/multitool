@@ -3,8 +3,11 @@
   (:require
    [clojure.string :as str]
    [clojure.set :as set]
-   [clojure.walk :as walk]
-   )
+   [clojure.walk :as walk])
+  #?(:cljs (:require-macros
+            [net.cgrand.macrovich :as macros]
+            [org.candelbio.multitool.core :refer [doseq* ignore-errors]])
+     :clj (:require [net.cgrand.macrovich :as macros]))
   #?(:clj  
      (:import (java.util.regex Pattern))))
 
@@ -51,6 +54,7 @@
   (zipmap (keys @memoizers)
           (map (comp count deref) (vals @memoizers))))
 
+(macros/deftime
 ;;; TODO This and its usages needs to be reworked for CLJS (Why? Macros probably)
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
@@ -64,6 +68,7 @@
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
   [var & body]
   `(def ~var (delay ~@body)))
+)
 
 ;;; TODO resettable atoms, maybe integrated with this, maybe separate.
 ;;; (def-resettable x (atom {}))
@@ -78,11 +83,12 @@
   [x]
   (instance? x #?(:clj Throwable :cljs js/Error)))
 
+(macros/deftime
 (defmacro ignore-errors
   "Execute `body`; if an exception occurs ignore it and return `nil`. Note: strongly deprecated for production code."
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e# nil)))
+        (catch ~(macros/case :clj Throwable :cljs :default) e# nil)))
 
 (defmacro ignore-report
   "Execute `body`, if an exception occurs, print a message and continue"
@@ -95,9 +101,9 @@
   "Execute `body`, if an exception occurs, return it"
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e#
+        (catch ~(macros/case :clj Throwable :cljs :default) e#
           e#)))
-
+)
 (defn error-handling-fn
   "Returns a fn that acts like f, but return value is (true result) or (false errmsg) in the case of an error"
   [f]
@@ -238,17 +244,19 @@
   [string]
   (re-pattern (re-quote string)))
 
+;;; TODO make a cljs version (or move to cljcore)
 ;;; Based on clojure.core/re-seq
-(defn re-seq-positions
-  "Returns a lazy sequence of successive matches of pattern in string, returning [start end] pairs"
-  [^java.util.regex.Pattern re s & [group]]
-  (let [m (re-matcher re s)]
-    (loop [result []]
-      (if (.find m)
-        (recur (conj result [(.start m (or group 0)) (.end m (or group 0))]))
-        result))))
+#?(:clj 
+   (defn re-seq-positions
+     "Returns a lazy sequence of successive matches of pattern in string, returning [start end] pairs"
+     [^java.util.regex.Pattern re s & [group]]
+     (let [m (re-matcher re s)]
+       (loop [result []]
+         (if (.find m)
+           (recur (conj result [(.start m (or group 0)) (.end m (or group 0))]))
+           result)))))
 
-;;; TODO make a cljs version
+;;; TODO make a cljs version (or move to cljcore)
 ;;; Note: clojure.string/replace is very close to this, but it returns a string instead of fragments.
 #?(:clj 
    (defn re-substitute
@@ -450,12 +458,14 @@
   [f & args]
   (remove nullish? (apply map f args)))
 
+(macros/deftime
 (defmacro forf
   "Like for but filters out nullish? values"
   [forms body]
   `(remove nullish?
            (for ~forms
              ~body)))
+)
 
 (defn mapcatf
   "Like mapcat but filters out nullish? values"
@@ -664,7 +674,7 @@
   [& lists]
   (seq (apply set/intersection (map set lists))))
 
-(defn lset-difference
+(defn ldifference                       ;was lset-difference, changed for consistency
   "Compute the set difference of `list1` - `list2'"
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
@@ -690,8 +700,6 @@
      (when (pred s)
        (cons s (rest-while pred (rest s)))))))
 
-
-
 (defn partition-diff
   "Partition coll between v1 and v2 at points for which (f v1 v2) is true"
   [f coll]
@@ -711,6 +719,7 @@
   [f chunk-size l]
   (mapcat f (partition-all chunk-size l)))
 
+(macros/deftime
 (defmacro doseq*
   "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
   {:style/indent 1}
@@ -739,6 +748,7 @@
 (defmacro forcat
   [vars body]
   `(apply concat (for ~vars ~body)))
+)
 
 ;;; ⩇⩆⩇ Vectors ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -795,9 +805,28 @@
   (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
 
 (defn index-by 
-  "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
+  "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors. "
   [f coll]  
   (zipmap (map f coll) coll))
+
+(defn distinct*?
+  "Given a seq, return true if all elements are distinct. See distinct?"
+  [seq]
+  (= (count seq) (count (distinct seq))))
+
+(defn duplicates
+  "Return elements that occur more than once."
+  [seq]
+  (map first (filter #(> (second %) 1) (frequencies seq))))
+
+;;; TODO tests
+(defn index-by-safely
+  "Return a map of the elements of coll indexed by (f elt). Throw an exception of there are duplicate keys."
+  [f coll]  
+  (let [keys (map f coll)]
+    (when-not (distinct*? keys)
+      (throw (ex-info "Duplicate keys in index-by-safely" {:dupes (duplicates keys)})))
+    (zipmap keys coll)))
 
 ;;; TODO this is confusingly named; there are several kinds of multiple to deal with.
 ;;; TODO Also no tests, and also should use transients
@@ -1046,6 +1075,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                     %)
                  struct))
 
+(macros/usetime
 (defn side-walk-paths
   ([f form path]
    (do 
@@ -1069,6 +1099,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
         (when (pred thing)
           (collector path)))
       form))))
+)
 
 (comment
   (def x {:a 1 :b {:c 2 :d 3 :e [1 7 2 4] :f [{:x 1} {:y 2}]}})
@@ -1112,6 +1143,17 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Fixed-point combinator, useful in conjunction with memoization"
   [f]
   (fn g [& args] (apply f g args)))
+
+;;; Use fixed-point combinator to memoize a recursive function
+;;; Stolen from https://stackoverflow.com/questions/27445876/is-there-a-simpler-way-to-memoize-a-recursive-let-fn
+(macros/deftime
+(defmacro memoize-rec
+  [form]
+  (let [[fn* fname params & body] form
+        params-with-fname (vec (cons fname params))]
+    `(let [f# (memoize (fn ~params-with-fname
+                         (let [~fname (partial ~fname ~fname)] ~@body)))]
+       (partial f# f#)))))
 
 ;;; Already in clojure, but I like this name better.
 ;;; (defaulted f x) returns a new fn that will substitute x for nil args (f is called on x)
