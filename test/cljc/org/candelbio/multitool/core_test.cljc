@@ -15,7 +15,6 @@
       (memoize-reset! :hey)
       (is (not (= (mem-next) a))))))
 
-
 (deftest underscore->camelcase-test
   (is (= (underscore->camelcase "foo_bar") "fooBar"))
   (is (= (underscore->camelcase "foo") "foo")))
@@ -242,7 +241,15 @@
 
 (deftest index-by-test
   (is (= '{a [a 1], b [b 2], c [c 3]}
-         (index-by first '[[a 1] [b 2] [c 3]]))))
+         (index-by first '[[a 1] [b 2] [c 3]])))
+  (is (= '{a [a 3], b [b 2]}
+         (index-by first '[[a 1] [b 2] [a 3]]))))
+
+(deftest index-by-safely-test
+  (is (= '{a [a 1], b [b 2], c [c 3]}
+         (index-by-safely first '[[a 1] [b 2] [c 3]])))
+  (is (thrown? Exception
+       (index-by-safely first '[[a 1] [b 2] [a 3]]))))
 
 (deftest group-by-multiple-test
   (is (= {2 #{4 6 12 2 14 16 10 18 8}
@@ -436,3 +443,9 @@
         memoized-fib (fix (memoize base-fib))]
     ;; If this wasn't memoized, it would take forever
     (is (= 20365011074 (memoized-fib 50)))))
+
+(deftest duplicates-test
+  (is (empty? (duplicates (range 10))))
+  (is (= '(1 2) (duplicates '(1 2 3 2 10 1 0 1)))))
+
+  

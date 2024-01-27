@@ -1,5 +1,7 @@
 (ns org.candelbio.multitool.math)
 
+;;; See clojure.math.combinatorics, clojure.math.numeric-tower (gcd, lcm)
+
 ;;; ⩇⩆⩇ Scaling and interpolation ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn interpolate
@@ -20,6 +22,16 @@
      (* (- val from-lower)
         (/ (- to-upper to-lower)
            (- from-upper from-lower)))))
+
+;;; ⩇⩆⩇ Sequence extrapolation ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn extrapolate
+  "Extrapolate a vector of numbers by one element, using method of finite differences"
+  [v]
+  (if (every? zero? v)
+    (conj v 0)
+    (conj v (+ (last v) (last (extrapolate (mapv - (rest v) v)))))))
+
 
 ;;; ⩇⩆⩇ Number theory ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

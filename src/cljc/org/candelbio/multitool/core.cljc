@@ -238,17 +238,19 @@
   [string]
   (re-pattern (re-quote string)))
 
+;;; TODO make a cljs version (or move to cljcore)
 ;;; Based on clojure.core/re-seq
-(defn re-seq-positions
-  "Returns a lazy sequence of successive matches of pattern in string, returning [start end] pairs"
-  [^java.util.regex.Pattern re s & [group]]
-  (let [m (re-matcher re s)]
-    (loop [result []]
-      (if (.find m)
-        (recur (conj result [(.start m (or group 0)) (.end m (or group 0))]))
-        result))))
+#?(:clj 
+   (defn re-seq-positions
+     "Returns a lazy sequence of successive matches of pattern in string, returning [start end] pairs"
+     [^java.util.regex.Pattern re s & [group]]
+     (let [m (re-matcher re s)]
+       (loop [result []]
+         (if (.find m)
+           (recur (conj result [(.start m (or group 0)) (.end m (or group 0))]))
+           result)))))
 
-;;; TODO make a cljs version
+;;; TODO make a cljs version (or move to cljcore)
 ;;; Note: clojure.string/replace is very close to this, but it returns a string instead of fragments.
 #?(:clj 
    (defn re-substitute
@@ -664,7 +666,7 @@
   [& lists]
   (seq (apply set/intersection (map set lists))))
 
-(defn lset-difference
+(defn ldifference                       ;was lset-difference, changed for consistency
   "Compute the set difference of `list1` - `list2'"
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
@@ -689,8 +691,6 @@
    (when-let [s (seq coll)]
      (when (pred s)
        (cons s (rest-while pred (rest s)))))))
-
-
 
 (defn partition-diff
   "Partition coll between v1 and v2 at points for which (f v1 v2) is true"
@@ -795,9 +795,28 @@
   (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
 
 (defn index-by 
-  "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors "
+  "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors. "
   [f coll]  
   (zipmap (map f coll) coll))
+
+(defn distinct*?
+  "Given a seq, return true if all elements are distinct. See distinct?"
+  [seq]
+  (= (count seq) (count (distinct seq))))
+
+(defn duplicates
+  "Return elements that occur more than once."
+  [seq]
+  (map first (filter #(> (second %) 1) (frequencies seq))))
+
+;;; TODO tests
+(defn index-by-safely
+  "Return a map of the elements of coll indexed by (f elt). Throw an exception of there are duplicate keys."
+  [f coll]  
+  (let [keys (map f coll)]
+    (when-not (distinct*? keys)
+      (throw (ex-info "Duplicate keys in index-by-safely" {:dupes (duplicates keys)})))
+    (zipmap keys coll)))
 
 ;;; TODO this is confusingly named; there are several kinds of multiple to deal with.
 ;;; TODO Also no tests, and also should use transients
@@ -1112,6 +1131,16 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Fixed-point combinator, useful in conjunction with memoization"
   [f]
   (fn g [& args] (apply f g args)))
+
+;;; Use fixed-point combinator to memoize a recursive function
+;;; Stolen from https://stackoverflow.com/questions/27445876/is-there-a-simpler-way-to-memoize-a-recursive-let-fn
+(defmacro memoize-rec
+  [form]
+  (let [[fn* fname params & body] form
+        params-with-fname (vec (cons fname params))]
+    `(let [f# (memoize (fn ~params-with-fname
+                         (let [~fname (partial ~fname ~fname)] ~@body)))]
+       (partial f# f#))))
 
 ;;; Already in clojure, but I like this name better.
 ;;; (defaulted f x) returns a new fn that will substitute x for nil args (f is called on x)
