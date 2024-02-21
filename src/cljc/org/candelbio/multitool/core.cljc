@@ -759,20 +759,31 @@
 ;;;   Changed in 0.0.12 to not error if unmergeable
 ;;;   Changed in 0.0.19 to merge terminal sets and sequences
 ;;; TODO should take arbitary # of args like merge and merge-with
-;;; TODO should be able to specify how to merge terminals. 
-(defn merge-recursive
-  "Merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
-  [m1 m2]
+(defn merge-recursive-with
+  "Recursively merge two arbitrariy nested map structures, merging terminals (non-maps) with f"
+  [f m1 m2]
   (cond (and (map? m1) (map? m2))
-        (merge-with merge-recursive m1 m2)
-        (and (set? m1) (set? m2))
-        (set/union m1 m2)
-        (and (vector? m1) (vector? m2))
-        (into [] (concat m1 m2))
-        (and (sequential? m1) (sequential? m2))
-        (concat m1 m2)
+        (merge-with (partial merge-recursive-with f) m1 m2)
         (nil? m2) m1
-        :else m2))
+        (nil? m1) m2
+        :else (f m1 m2)))
+
+(defn merge-recursive
+  "Recursively merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
+  [m1 m2]
+  (merge-recursive-with
+   (fn [v1 v2]
+     (cond (nil? v1) v2
+           (nil? v2) v1
+           (and (set? v1) (set? v2))
+           (set/union v1 v2)
+           (and (vector? v1) (vector? v2))
+           (into [] (concat v1 v2))
+           (and (sequential? v1) (sequential? v2))
+           (concat v1 v2)
+           :else v2)                    ;Thought about returning a pair in this case but that seems a bit off.
+     )
+   m1 m2))
 
 ;;; The fns below are going to be in clojure.core someday
 ;;; https://clojure.atlassian.net/browse/CLJ-1959
