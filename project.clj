@@ -10,9 +10,7 @@
   :source-paths ["src/cljc" "src/clj" "src/cljs"]
   :test-paths ["test/cljc" "test/clj"]  ;TODO cljs testing
   :plugins [[lein-codox "0.10.8"]
-            [lein-cljsbuild "1.1.8"]
-            [lein-doo "0.1.11"]
-            ]
+            [lein-doo "0.1.11"]]
   :jvm-opts ["--add-opens" "java.base/java.lang=ALL-UNNAMED"] ;necessary for codox to run
   :cljsbuild {:builds [{:id "test"
                         :source-paths ["src/cljc" "src/cljs" "test/cljs"]
