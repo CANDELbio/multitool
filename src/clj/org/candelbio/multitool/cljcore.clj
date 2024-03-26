@@ -72,11 +72,14 @@
       (list (/ (double (- (System/nanoTime) start)) 1000000.0)
             ret))))
 
+;;; TODO better name
 (defn java-resource->string [resource]
   (-> resource
       io/resource
       io/input-stream
       slurp))
+
+;;; TODO Java EDN resource, see also read-from-file
 
 ;;; ⩇⩆⩇ Files ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -198,6 +201,7 @@
      (core/str-replace-multiple map line))))
 
 ;;; TODO generalize to more than one form?
+;;; TODO edn reader is better
 (defn read-from-file
   "Read a form from a file"
   [file]
@@ -371,7 +375,7 @@
 ;;; ⩇⩆⩇ Processes ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn start-periodic-process!
-  "Start a background process to execute thunk f periodically (every t mssc)"
+  "Start a background process to execute thunk f every t mssc"
   [t f]
   (future
     (loop []
@@ -379,3 +383,15 @@
       (Thread/sleep t)
       (recur)))
   nil)
+
+;;; ⩇⩆⩇ Reflection ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; See clojure.reflect/reflect which does most of what I want
+
+;;; Invoke a private or protected Java method (of no args – that requires more complication)
+(defn invoke-private
+  [o methodname]
+  (let [m (.getDeclaredMethod (class o) nil)]
+    (.invoke m o nil)))
+
+
