@@ -812,6 +812,19 @@
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
+;;; TODO pick a convention to mean "recursive"
+(defn map-keys*
+  "Map f over the keys of hashmap, and any nested hashmaps"
+  [f hashmap]
+  (if (map? hashmap)
+    (reduce-kv (fn [acc k v] (assoc acc (f k) (map-keys* f v))) {} hashmap)
+    hashmap))
+
+(defn dehumanize
+  "Convert string keys to keywords, recursively"
+  [map]
+  (map-keys* (comp keyword-safe str/lower-case) map))
+
 (defn map-key-values
   "Map f over [k v] of hashmap, returning new v"
   [f hashmap]

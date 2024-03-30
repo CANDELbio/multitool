@@ -251,6 +251,11 @@
   (is (= '("I like " [:i "food"] " and " [:i "goofing"] " on " [:i "woo"] ".")
          (re-substitute #"\w*oo\w*" "I like food and goofing on woo." (fn [ss] [:i ss])))))
 
+(deftest dehumanize-test
+  (let [m {"This" 1 "Uses strings" 2 "As keys" {"which is" "weird"}}]
+    (is (= {:this 1, :uses_strings 2, :as_keys {:which_is "weird"}}
+           (dehumanize m)))))
+
 (deftest index-by-test
   (is (= '{a [a 1], b [b 2], c [c 3]}
          (index-by first '[[a 1] [b 2] [c 3]])))
