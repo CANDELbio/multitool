@@ -31,6 +31,18 @@
     (= (map f (range 100))
        (map-chunked #(map f %) 7 (range 100)))))
       
+(deftest following-elt-test
+  (is (= 3 (following-elt 2 [1 2 3 4])))
+  (is (nil? (following-elt 20 [1 2 3 4])))
+  (is (nil? (following-elt 4 [1 2 3 4])))
+  (is (nil? (following-elt 1 []))))
+
+(deftest preceding-elt-test
+  (is (= 3 (preceding-elt 4 [1 2 3 4])))
+  (is (nil? (preceding-elt 20 [1 2 3 4])))
+  (is (nil? (preceding-elt 1 [1 2 3 4])))
+  (is (nil? (preceding-elt 1 []))))
+
 (deftest some-thing-test
   (is (= 2 (some-thing even? '(1 2 3 4)))))
 

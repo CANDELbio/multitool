@@ -471,6 +471,18 @@
     (doall thing)
     thing))
 
+(defn following-elt
+  [elt seq]
+  (cond (empty? seq) nil
+        (= (first seq) elt) (second seq)
+        :else (following-elt elt (rest seq))))
+
+(defn preceding-elt
+  [elt seq]
+  (cond (empty? seq) nil
+        (= (second seq) elt) (first seq)
+        :else (preceding-elt elt (rest seq))))
+
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
   "Remove occurences of elt in seq, applying key-fn before testing if supplied"

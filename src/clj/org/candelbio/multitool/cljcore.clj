@@ -149,6 +149,13 @@
     (when-not (.exists f)
       (.mkdirs f))))
 
+(defn ensure-file
+  "Ensure that the directory structure to contain this file exists"
+  [f]
+  (let [parts (str/split f #"\/")]
+    (ensure-directory (str/join "/" (butlast parts)))
+    f))
+
 (defn local-file
   "Make a copy of contens of url in a local temp file or supplied filename"
   ([url]
