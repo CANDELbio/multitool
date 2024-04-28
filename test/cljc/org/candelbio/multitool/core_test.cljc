@@ -209,6 +209,13 @@
   (is (= '("a-1-1" "b") (uncollide '("a" "b") :existing '("a" "a-1") :new-key-fn #(str % "-1"))))
   )
 
+(deftest intercalate-test
+  (is (= '(a 1 b 2 c 3) (intercalate '(a b c) '(1 2 3))))
+  (is (= '(a 1 b c) (intercalate '(a b c) '(1))))
+  (is (= '(a 1 2 3) (intercalate '(a) '(1 2 3))))
+  (is (= '(1 2 3) (intercalate nil '(1 2 3))))
+  (is (= '(a b c) (intercalate '(a b c) nil))))
+
 (deftest ignore-errors-test
   (testing "normal"
     (is (= 7 (ignore-errors (+ 3 4)))))

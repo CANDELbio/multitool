@@ -615,6 +615,14 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+(defn intercalate
+  [l1 l2]
+  (cond (empty? l1) l2
+        (empty? l2) l1
+        :else (cons (first l1)
+                    (cons (first l2)
+                          (intercalate (rest l1) (rest l2))))))
+
 ;;; TODO should probably use coll? and rename
 (defn sequencify
   "Turn thing into a sequence if it already isn't one"
@@ -1243,8 +1251,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 (defn random-element
   "Return a random element from a seq"
-  [l]
-  (nth l (rand-int (count l))))
+  [seq]
+  (nth seq (rand-int (count seq))))
+
+(defn random-elements
+  "Return n random elements from a seq"
+  [n seq]
+  (repeatedly n #(random-element seq)))
 
 (defn round
   "Round the argument"
