@@ -105,15 +105,25 @@
 
 ;;; ⩇⩆⩇ Naive statistics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; These are for convenience / learning.
+;;; These are for convenience / learning and are not particularly efficient or scalable.
 ;;; Use a real statistics package if you have anything serious to do.
-;;; eg: incanter.stats 
+;;; eg: incanter.stats or see https://scicloj.github.io/docs/resources/libs/
 
 (defn mean
   "Return the arithmetic mean of the elements of `seq`"
   [seq]
   (/ (reduce + seq)
      (count seq)))
+
+(defn median
+  "Return the median of the elements of `seq`"
+  [seq]
+  (let [sorted (sort seq)
+        count (count seq)]
+    (if (even? count)
+      (mean [(nth sorted (/ count 2))
+             (nth sorted (dec (/ count 2)))])
+      (nth sorted (/ (dec count) 2)))))
 
 (defn standard-deviation
   "Return standard deviation of the elements of `seq`"
