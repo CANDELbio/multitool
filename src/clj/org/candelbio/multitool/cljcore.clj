@@ -85,11 +85,22 @@
 
 ;;; Note: probably better to avoid these and use raynes/fs https://github.com/Raynes/fs
 
+;;; Based on clojure.core/file-seq
+(defn file-seq-filtered
+  "A tree seq on java.io.Files"
+  [remove-fn dir]
+  (tree-seq
+   (fn [^java.io.File f] (.isDirectory f))
+   (fn [^java.io.File d] (remove remove-fn (seq (.listFiles d))))
+   dir))
+
 (defn list-dir-recursive
-  "Like fs/list-dir, but recurses through subdirectories (and does not include subdirs in result)"
+  "Like fs/list-dir, but recurses through subdirectories and does not include dirs in result. Ignore .dotfiles" ; TODO option to include dotfiles
   [dir]
-  (remove #(.isDirectory %)
-          (file-seq (io/as-file dir))))
+  (->> dir
+       io/as-file
+       (file-seq-filtered #(= \. (first (.getName %))))
+       (remove #(.isDirectory %))))
 
 ;;; Deprecated
 (defn content-files
@@ -195,6 +206,7 @@
 (defn process-file-lines
   ([f in out]
    (file-lines-out out (map f (file-lines in))))
+  #_                                    ;I'm deprecating this, its fucked me over on multiple occasions
   ([f in]
    (let [out (tmp-file)]
      (process-file-lines f in out)
@@ -267,6 +279,8 @@
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; Very simple tab file i/o. Not sophisticated and won't handle some cases, use clojure.data.csv for real work
+
+;;; TODO deal with csvs, and deal with ~/ paths
 
 (defn read-tsv-rows
   "Read a tsv file into vectors"
