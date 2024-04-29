@@ -5,6 +5,11 @@
             [org.candelbio.multitool.nlp :as nlp]
             [org.candelbio.multitool.math :as math]))
 
+(deftest truncate-string-test
+  (is (= "foo" (truncate-string 3 "foo")))
+  (is (= "fo…" (truncate-string 2 "foo")))
+  (is (= "fo" (truncate-string 3 "fo"))))
+
 (deftest memoize-named-test
   (let [counter (atom 0)
         next #(swap! counter inc)
@@ -117,6 +122,10 @@
     (is (= (set (map first (descendents tree)))
            #{:terns :cats :birds :elephants :plants :warblers :owls
              :trees :animals :organisms :mammals :cacti}))))
+
+(deftest divide-with-test
+  (= [[0 2 4 6 8] [1 3 5 7 9]]
+     (divide-with even? (range 10))))
 
 (deftest compare-tests
   (is (>* 2 1))

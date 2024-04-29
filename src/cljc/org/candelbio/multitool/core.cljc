@@ -111,6 +111,12 @@
 
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn truncate-string
+  [n s]
+  (if (> (count s) n)
+    (str (subs s 0 n) "…")
+    s))
+
 (defn coerce-numeric
   "Attempt to turn thing into a number (long or double).
   Return number if succesful, otherwise original string"
@@ -447,6 +453,12 @@
   "Return a seq padded out to infinity with nils"
   [seq]
   (concat seq (repeat nil)))
+
+;;; I thought split-with did this, but no. Surely this in core?
+(defn divide-with
+  [p coll]
+  (let [groups (group-by (comp true? p) coll)]
+    [(get groups true) (get groups false)]))
 
 (defn mapf
   "Like map but filters out nullish? values"
