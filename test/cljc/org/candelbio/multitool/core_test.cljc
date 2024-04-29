@@ -324,6 +324,19 @@
              (collect {(first word) [word]}))))]
     (is (= (get silly \h) '("hollow" "horses'" "hooves" "heard" "heard")))))
 
+(deftest walk-map-entries-test
+  (is (= {:a [1 1], :b [2 2], :c [{:d [3 3], :e [4 4]} {:d [3 3], :e [4 4]}]}
+         (walk-map-entries (fn [[k v]] [k [v v]])
+                           {:a 1 :b 2 :c {:d 3 :e 4 }}))))
+
+(deftest walk-keys-test
+  (is (= {:a 2, :b 2, :c {:d 6, :e 4}}
+         (walk-keys (fn [[k v]]  [k (* 2 v)]) #{:a :d}
+                    {:a 1 :b 2 :c {:d 3 :e 4}})))
+  (is (= {:a 1, :b 2, :c {:d 6, :e 4}}
+         (walk-keys (fn [[k v]]  [k (* 2 v)]) :d
+                    {:a 1 :b 2 :c {:d 3 :e 4}}))))
+
 (deftest walk-collect-test
   (is (= [1 2 3]
          (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))

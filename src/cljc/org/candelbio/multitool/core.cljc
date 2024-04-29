@@ -6,7 +6,8 @@
    [clojure.walk :as walk]
    )
   #?(:clj  
-     (:import (java.util.regex Pattern))))
+     (:import (java.util.regex Pattern)
+              (clojure.lang MapEntry))))
 
 ;;; Warning: some hacks in here could be considered poor Clojure form. 
 ;;; TODO Probably time to split this file into multiple
@@ -1028,6 +1029,38 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (make-collecter {} merge-recursive))
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; Some common patterns
+
+(defn walk-filtered
+  "Walk thing, applying f to every object that passes filter"
+  [f thing filter]
+  (walk/postwalk
+   (fn [thing]
+     (if (filter thing)
+       (f thing)
+       thing))
+   thing))
+
+(defn walk-map-entries
+  "Walk all the map entries in thing"
+  [f thing]
+  (walk-filtered f thing map-entry?))
+
+;;; Unaccountably not in the language
+;;; TODO cljs version
+(defn map-entry
+  "Make a map entry"
+  ([k v]
+   (MapEntry/create k v))
+  ([[k v]]                              ;This l
+   (map-entry k v)))
+
+(defn walk-keys
+  "Walk all the map entries in thing matching key (a key or set)"
+  [f keys thing]
+  (let [keys (set (if (coll? keys) keys [keys]))]
+    (walk-filtered f thing #(and (map-entry? %) (keys (first %))))))
 
 ;;; Previously subst, but that collides with clojure.core
 (defn substitute
