@@ -179,8 +179,21 @@
      (io/copy (.openStream url) local-file)
      (str local-file))))
 
+;;; TODO use this more extensively.
+;;; Note: incorrect for ~fred/blah paths, but I can't think of a reecent occasion of use for that.
+(defn expand-homedir
+  [path]
+  (str/replace path #"^~" (System/getProperty "user.home")))
+
+(defn reader
+  "Return a reader for a file, with homedir expansin"
+  [file]
+  (-> file
+      expand-homedir
+      io/reader))
+
 (defn file-lines [file]
-  (let [r (io/reader file)]
+  (let [r (reader file)]
     (line-seq r)))
 
 (defn file-lines-out [file seq]
@@ -226,7 +239,7 @@
   [file]
   (let [rdr (-> file
                 io/file
-                io/reader
+                reader
                 PushbackReader.)]
     (read rdr)))
 
@@ -280,36 +293,53 @@
 
 ;;; Very simple tab file i/o. Not sophisticated and won't handle some cases, use clojure.data.csv for real work
 
-;;; TODO deal with csvs, and deal with ~/ paths
-
 (defn read-tsv-rows
   "Read a tsv file into vectors"
-  [f]
-  (map #(str/split % #"	")
+  [f & [separator]]
+  (map #(str/split % separator)
        (file-lines f)))
+
+(defn read-csv-rows
+  "Read a csv file into vectors"
+  [f]
+  (read-tsv-rows f #"\,"))
 
 (defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
-  [f]
-  (let [rows (read-tsv-rows f)]
+  [f & [separator]]
+  (let [rows (read-tsv-rows f separator)]
     (map #(zipmap (first rows) %)
          (rest rows))))
 
+(defn read-csv-maps
+  "Read a csv file into maps"
+  [f]
+  (read-tsv-maps f #"\,"))
+
 (defn write-tsv-rows
-  [f rows]
+  [f rows & [separator]]
   (file-lines-out
    f
-   (map (partial str/join \tab) rows)))
+   (map (partial str/join separator) rows)))
 
 (defn write-tsv-maps
-  [f rows]
+  [f rows & [separator]]
   (let [cols (keys (first rows))]
   (file-lines-out
    f
-   (map (partial str/join \tab)
+   (map (partial str/join separator)
         (cons (map name cols)
               (map (fn [row] (map (fn [col] (get row col)) cols))
                    rows))))))
+
+(defn write-csv-rows
+  [f rows]
+  (write-tsv-rows f rows ","))
+
+(defn write-csv-maps
+  [f rows]
+  (write-tsv-maps f rows ","))
+
 
 ;;; TODO parallel fns for .csv
 
