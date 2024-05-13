@@ -206,16 +206,21 @@
   (is (= '("a-1-1" "b") (sut/uncollide '("a" "b") :existing '("a" "a-1") :new-key-fn #(str % "-1"))))
   )
 
+;;; Note: (/ 0 0) does not throw an error in js! So these have diverged from clj version
+
 (deftest ignore-errors-test
   (testing "normal"
     (is (= 7 (ignore-errors (+ 3 4)))))
   (testing "error"
-    (is (= nil (ignore-errors (/ 0 0) (+ 3 4))))))
+    (is (= nil (ignore-errors (.foo 0) (+ 3 4))))))
 
+;;; TODO should test success
 (deftest error-handling-fn-test
-  (let [ed (sut/error-handling-fn /)]
-    #_ (is (= '(true 2/3) (ed 2 3)))
-    (is (= '(false "Caught exception: java.lang.ArithmeticException: Divide by zero") (ed 2 0)))))
+  (let [f #(.foo %)
+        ed (sut/error-handling-fn f)
+        [success? msg] (ed 2)]
+    (is (= false success?))
+    (is (re-find #"foo is not a function" msg))))
 
 (deftest vectorize-test
   (let [+* (sut/vectorize +)]

@@ -305,22 +305,12 @@
   (map #(str/split % separator)
        (file-lines f)))
 
-(defn read-csv-rows
-  "Read a csv file into vectors"
-  [f]
-  (read-tsv-rows f #"\,"))
-
 (defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
   [f & [separator]]
   (let [rows (read-tsv-rows f separator)]
     (map #(zipmap (first rows) %)
          (rest rows))))
-
-(defn read-csv-maps
-  "Read a csv file into maps"
-  [f]
-  (read-tsv-maps f #"\,"))
 
 (defn write-tsv-rows
   [f rows & [separator]]
@@ -338,6 +328,16 @@
               (map (fn [row] (map (fn [col] (get row col)) cols))
                    rows))))))
 
+(defn read-csv-rows
+  "Read a csv file into vectors"
+  [f]
+  (read-tsv-rows f #"\,"))
+
+(defn read-csv-maps
+  "Read a csv file into maps"
+  [f]
+  (read-tsv-maps f #"\,"))
+
 (defn write-csv-rows
   [f rows]
   (write-tsv-rows f rows ","))
@@ -345,9 +345,6 @@
 (defn write-csv-maps
   [f rows]
   (write-tsv-maps f rows ","))
-
-
-;;; TODO parallel fns for .csv
 
 (defn open-url
   [url]

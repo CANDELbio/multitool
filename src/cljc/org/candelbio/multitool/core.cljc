@@ -71,13 +71,6 @@
   `(def ~var (delay ~@body)))
 )
 
-;;; TODO resettable atoms, maybe integrated with this, maybe separate.
-;;; (def-resettable x (atom {}))
-;;; (reset-resettables) → does the obvious thing
-;;; The idea is that it should be possible to reset to a known state.
-;;; Seems unclojurish
-
-
 ;;; ⩇⩆⩇ Exception handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn throwable?
@@ -244,7 +237,7 @@
   #?(:clj  
      (Pattern/quote s)
      :cljs
-     (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\])" "\\$1")))
+     (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\\$])" "\\$1")))
 
 (defn re-pattern-literal
   "Return a regex that will match the literal string"
@@ -642,8 +635,8 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
-;;; TODO generalize to n lists
 (defn intercalate
+  "Given 2 seqs, produce a seq with alternating elements."
   [l1 l2]
   (cond (empty? l1) l2
         (empty? l2) l1
@@ -651,7 +644,6 @@
                     (cons (first l2)
                           (intercalate (rest l1) (rest l2))))))
 
-;;; TODO should probably use coll? and rename
 (defn sequencify
   "Turn thing into a sequence if it already isn't one"
   [thing]
@@ -850,23 +842,24 @@
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
-;;; TODO pick a convention to mean "recursive"
-(defn map-keys*
+(defn map-keys-recursive
   "Map f over the keys of hashmap, and any nested hashmaps"
   [f hashmap]
   (if (map? hashmap)
-    (reduce-kv (fn [acc k v] (assoc acc (f k) (map-keys* f v))) {} hashmap)
+    (reduce-kv (fn [acc k v] (assoc acc (f k) (map-keys-recursive f v))) {} hashmap)
     hashmap))
 
 (defn dehumanize
   "Convert string keys to keywords, recursively"
   [map]
-  (map-keys* (comp keyword-safe str/lower-case) map))
+  (map-keys-recursive (comp keyword-safe str/lower-case) map))
 
 (defn map-key-values
   "Map f over [k v] of hashmap, returning new v"
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
+
+;;; TODO map-values-recursive, map-key-values-recursive
 
 (defn index-by 
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors. "
@@ -1077,13 +1070,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (walk-filtered f thing map-entry?))
 
 ;;; Unaccountably not in the language
-;;; TODO cljs version
 #?(:clj
    (defn map-entry
      "Make a map entry"
      ([k v]
       (MapEntry/create k v))
-     ([[k v]]                              ;This l
+     ([[k v]]
       (map-entry k v)))
    )
 
