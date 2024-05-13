@@ -83,6 +83,7 @@
   "Execute `body`; if an exception occurs ignore it and return `nil`. Note: strongly deprecated for production code."
   [& body]
   `(try (do ~@body)
+        ;; TODO this probably doesn't work in cljs, the conditional is invalid because cljs macros are clj.
         (catch #?(:clj Throwable :cljs :default) e# nil)))
 
 (defmacro ignore-report
@@ -362,6 +363,11 @@
 
 ;;; ⩇⩆⩇ Keywords, names, namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn keyword-conc
+  "Concatenate parts (which are keywords, strings, anything acceptable to name) into a keyword"
+  [& parts]
+  (keyword (str/join "-" (map name parts))))
+
 (defn keyword-safe
   "Make a string into a readable keyword by replacing certain punctuation"
   [str]
@@ -379,8 +385,9 @@
 (defn safe-name
   [thing]
   "name of thing, or nil"
-  (when #?(:clj (instance? clojure.lang.Named thing)
-           :cljs (.-name thing))
+  (when (and thing
+             #?(:clj (instance? clojure.lang.Named thing)
+                :cljs (.-name thing)))
     (name thing)))
 
 (defn bstr
@@ -628,6 +635,7 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+;;; TODO generalize to n lists
 (defn intercalate
   [l1 l2]
   (cond (empty? l1) l2
@@ -1061,12 +1069,14 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; Unaccountably not in the language
 ;;; TODO cljs version
-(defn map-entry
-  "Make a map entry"
-  ([k v]
-   (MapEntry/create k v))
-  ([[k v]]                              ;This l
-   (map-entry k v)))
+#?(:clj
+   (defn map-entry
+     "Make a map entry"
+     ([k v]
+      (MapEntry/create k v))
+     ([[k v]]                              ;This l
+      (map-entry k v)))
+   )
 
 (defn walk-keys
   "Walk all the map entries in thing matching key (a key or set)"
