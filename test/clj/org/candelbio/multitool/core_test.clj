@@ -5,6 +5,11 @@
             [org.candelbio.multitool.nlp :as nlp]
             [org.candelbio.multitool.math :as math]))
 
+(deftest truncate-string-test
+  (is (= "foo" (truncate-string 3 "foo")))
+  (is (= "fo…" (truncate-string 2 "foo")))
+  (is (= "fo" (truncate-string 3 "fo"))))
+
 (deftest memoize-named-test
   (let [counter (atom 0)
         next #(swap! counter inc)
@@ -31,6 +36,18 @@
     (= (map f (range 100))
        (map-chunked #(map f %) 7 (range 100)))))
       
+(deftest following-elt-test
+  (is (= 3 (following-elt 2 [1 2 3 4])))
+  (is (nil? (following-elt 20 [1 2 3 4])))
+  (is (nil? (following-elt 4 [1 2 3 4])))
+  (is (nil? (following-elt 1 []))))
+
+(deftest preceding-elt-test
+  (is (= 3 (preceding-elt 4 [1 2 3 4])))
+  (is (nil? (preceding-elt 20 [1 2 3 4])))
+  (is (nil? (preceding-elt 1 [1 2 3 4])))
+  (is (nil? (preceding-elt 1 []))))
+
 (deftest some-thing-test
   (is (= 2 (some-thing even? '(1 2 3 4)))))
 
@@ -105,6 +122,10 @@
     (is (= (set (map first (descendents tree)))
            #{:terns :cats :birds :elephants :plants :warblers :owls
              :trees :animals :organisms :mammals :cacti}))))
+
+(deftest divide-with-test
+  (= [[0 2 4 6 8] [1 3 5 7 9]]
+     (divide-with even? (range 10))))
 
 (deftest compare-tests
   (is (>* 2 1))
@@ -197,6 +218,13 @@
   (is (= '("a-1-1" "b") (uncollide '("a" "b") :existing '("a" "a-1") :new-key-fn #(str % "-1"))))
   )
 
+(deftest intercalate-test
+  (is (= '(a 1 b 2 c 3) (intercalate '(a b c) '(1 2 3))))
+  (is (= '(a 1 b c) (intercalate '(a b c) '(1))))
+  (is (= '(a 1 2 3) (intercalate '(a) '(1 2 3))))
+  (is (= '(1 2 3) (intercalate nil '(1 2 3))))
+  (is (= '(a b c) (intercalate '(a b c) nil))))
+
 (deftest ignore-errors-test
   (testing "normal"
     (is (= 7 (ignore-errors (+ 3 4)))))
@@ -238,6 +266,11 @@
   ;; Italicize all words that contain "oo"
   (is (= '("I like " [:i "food"] " and " [:i "goofing"] " on " [:i "woo"] ".")
          (re-substitute #"\w*oo\w*" "I like food and goofing on woo." (fn [ss] [:i ss])))))
+
+(deftest dehumanize-test
+  (let [m {"This" 1 "Uses strings" 2 "As keys" {"which is" "weird"}}]
+    (is (= {:this 1, :uses_strings 2, :as_keys {:which_is "weird"}}
+           (dehumanize m)))))
 
 (deftest index-by-test
   (is (= '{a [a 1], b [b 2], c [c 3]}
@@ -299,6 +332,19 @@
            (doseq [word (nlp/tokens text1)]
              (collect {(first word) [word]}))))]
     (is (= (get silly \h) '("hollow" "horses'" "hooves" "heard" "heard")))))
+
+(deftest walk-map-entries-test
+  (is (= {:a [1 1], :b [2 2], :c [{:d [3 3], :e [4 4]} {:d [3 3], :e [4 4]}]}
+         (walk-map-entries (fn [[k v]] [k [v v]])
+                           {:a 1 :b 2 :c {:d 3 :e 4 }}))))
+
+(deftest walk-keys-test
+  (is (= {:a 2, :b 2, :c {:d 6, :e 4}}
+         (walk-keys (fn [[k v]]  [k (* 2 v)]) #{:a :d}
+                    {:a 1 :b 2 :c {:d 3 :e 4}})))
+  (is (= {:a 1, :b 2, :c {:d 6, :e 4}}
+         (walk-keys (fn [[k v]]  [k (* 2 v)]) :d
+                    {:a 1 :b 2 :c {:d 3 :e 4}}))))
 
 (deftest walk-collect-test
   (is (= [1 2 3]

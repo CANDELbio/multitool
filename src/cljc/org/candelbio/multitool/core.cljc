@@ -9,7 +9,8 @@
             [org.candelbio.multitool.core :refer [doseq* ignore-errors]])
      :clj (:require [net.cgrand.macrovich :as macros]))
   #?(:clj  
-     (:import (java.util.regex Pattern))))
+     (:import (java.util.regex Pattern)
+              (clojure.lang MapEntry))))
 
 ;;; Warning: some hacks in here could be considered poor Clojure form. 
 ;;; TODO Probably time to split this file into multiple
@@ -115,6 +116,12 @@
         (list false (str "Caught exception: " e))))))
 
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn truncate-string
+  [n s]
+  (if (> (count s) n)
+    (str (subs s 0 n) "…")
+    s))
 
 (defn coerce-numeric
   "Attempt to turn thing into a number (long or double).
@@ -361,6 +368,11 @@
 
 ;;; ⩇⩆⩇ Keywords, names, namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn keyword-conc
+  "Concatenate parts (which are keywords, strings, anything acceptable to name) into a keyword"
+  [& parts]
+  (keyword (str/join "-" (map name parts))))
+
 (defn keyword-safe
   "Make a string into a readable keyword by replacing certain punctuation"
   [str]
@@ -378,8 +390,9 @@
 (defn safe-name
   [thing]
   "name of thing, or nil"
-  (when #?(:clj (instance? clojure.lang.Named thing)
-           :cljs (.-name thing))
+  (when (and thing
+             #?(:clj (instance? clojure.lang.Named thing)
+                :cljs (.-name thing)))
     (name thing)))
 
 (defn bstr
@@ -453,6 +466,12 @@
   [seq]
   (concat seq (repeat nil)))
 
+;;; I thought split-with did this, but no. Surely this in core?
+(defn divide-with
+  [p coll]
+  (let [groups (group-by (comp true? p) coll)]
+    [(get groups true) (get groups false)]))
+
 (defn mapf
   "Like map but filters out nullish? values"
   [f & args]
@@ -478,6 +497,18 @@
   (if (sequential? thing)
     (doall thing)
     thing))
+
+(defn following-elt
+  [elt seq]
+  (cond (empty? seq) nil
+        (= (first seq) elt) (second seq)
+        :else (following-elt elt (rest seq))))
+
+(defn preceding-elt
+  [elt seq]
+  (cond (empty? seq) nil
+        (= (second seq) elt) (first seq)
+        :else (preceding-elt elt (rest seq))))
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
@@ -610,6 +641,15 @@
                   (cons (first xs)
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
+
+;;; TODO generalize to n lists
+(defn intercalate
+  [l1 l2]
+  (cond (empty? l1) l2
+        (empty? l2) l1
+        :else (cons (first l1)
+                    (cons (first l2)
+                          (intercalate (rest l1) (rest l2))))))
 
 ;;; TODO should probably use coll? and rename
 (defn sequencify
@@ -769,20 +809,31 @@
 ;;;   Changed in 0.0.12 to not error if unmergeable
 ;;;   Changed in 0.0.19 to merge terminal sets and sequences
 ;;; TODO should take arbitary # of args like merge and merge-with
-;;; TODO should be able to specify how to merge terminals. 
-(defn merge-recursive
-  "Merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
-  [m1 m2]
+(defn merge-recursive-with
+  "Recursively merge two arbitrariy nested map structures, merging terminals (non-maps) with f"
+  [f m1 m2]
   (cond (and (map? m1) (map? m2))
-        (merge-with merge-recursive m1 m2)
-        (and (set? m1) (set? m2))
-        (set/union m1 m2)
-        (and (vector? m1) (vector? m2))
-        (into [] (concat m1 m2))
-        (and (sequential? m1) (sequential? m2))
-        (concat m1 m2)
+        (merge-with (partial merge-recursive-with f) m1 m2)
         (nil? m2) m1
-        :else m2))
+        (nil? m1) m2
+        :else (f m1 m2)))
+
+(defn merge-recursive
+  "Recursively merge two arbitrariy nested map structures. Terminal seqs are concatentated, terminal sets are merged."
+  [m1 m2]
+  (merge-recursive-with
+   (fn [v1 v2]
+     (cond (nil? v1) v2
+           (nil? v2) v1
+           (and (set? v1) (set? v2))
+           (set/union v1 v2)
+           (and (vector? v1) (vector? v2))
+           (into [] (concat v1 v2))
+           (and (sequential? v1) (sequential? v2))
+           (concat v1 v2)
+           :else v2)                    ;Thought about returning a pair in this case but that seems a bit off.
+     )
+   m1 m2))
 
 ;;; The fns below are going to be in clojure.core someday
 ;;; https://clojure.atlassian.net/browse/CLJ-1959
@@ -798,6 +849,19 @@
   "Map f over the keys of hashmap"
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
+
+;;; TODO pick a convention to mean "recursive"
+(defn map-keys*
+  "Map f over the keys of hashmap, and any nested hashmaps"
+  [f hashmap]
+  (if (map? hashmap)
+    (reduce-kv (fn [acc k v] (assoc acc (f k) (map-keys* f v))) {} hashmap)
+    hashmap))
+
+(defn dehumanize
+  "Convert string keys to keywords, recursively"
+  [map]
+  (map-keys* (comp keyword-safe str/lower-case) map))
 
 (defn map-key-values
   "Map f over [k v] of hashmap, returning new v"
@@ -994,6 +1058,40 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (make-collecter {} merge-recursive))
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; Some common patterns
+
+(defn walk-filtered
+  "Walk thing, applying f to every object that passes filter"
+  [f thing filter]
+  (walk/postwalk
+   (fn [thing]
+     (if (filter thing)
+       (f thing)
+       thing))
+   thing))
+
+(defn walk-map-entries
+  "Walk all the map entries in thing"
+  [f thing]
+  (walk-filtered f thing map-entry?))
+
+;;; Unaccountably not in the language
+;;; TODO cljs version
+#?(:clj
+   (defn map-entry
+     "Make a map entry"
+     ([k v]
+      (MapEntry/create k v))
+     ([[k v]]                              ;This l
+      (map-entry k v)))
+   )
+
+(defn walk-keys
+  "Walk all the map entries in thing matching key (a key or set)"
+  [f keys thing]
+  (let [keys (set (if (coll? keys) keys [keys]))]
+    (walk-filtered f thing #(and (map-entry? %) (keys (first %))))))
 
 ;;; Previously subst, but that collides with clojure.core
 (defn substitute
@@ -1220,8 +1318,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 (defn random-element
   "Return a random element from a seq"
-  [l]
-  (nth l (rand-int (count l))))
+  [seq]
+  (nth seq (rand-int (count seq))))
+
+(defn random-elements
+  "Return n random elements from a seq"
+  [n seq]
+  (repeatedly n #(random-element seq)))
 
 (defn round
   "Round the argument"

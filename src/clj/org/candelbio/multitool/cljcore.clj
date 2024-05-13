@@ -72,21 +72,35 @@
       (list (/ (double (- (System/nanoTime) start)) 1000000.0)
             ret))))
 
+;;; TODO better name
 (defn java-resource->string [resource]
   (-> resource
       io/resource
       io/input-stream
       slurp))
 
+;;; TODO Java EDN resource, see also read-from-file
+
 ;;; ⩇⩆⩇ Files ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; Note: probably better to avoid these and use raynes/fs https://github.com/Raynes/fs
 
+;;; Based on clojure.core/file-seq
+(defn file-seq-filtered
+  "A tree seq on java.io.Files"
+  [remove-fn dir]
+  (tree-seq
+   (fn [^java.io.File f] (.isDirectory f))
+   (fn [^java.io.File d] (remove remove-fn (seq (.listFiles d))))
+   dir))
+
 (defn list-dir-recursive
-  "Like fs/list-dir, but recurses through subdirectories (and does not include subdirs in result)"
+  "Like fs/list-dir, but recurses through subdirectories and does not include dirs in result. Ignore .dotfiles" ; TODO option to include dotfiles
   [dir]
-  (remove #(.isDirectory %)
-          (file-seq (io/as-file dir))))
+  (->> dir
+       io/as-file
+       (file-seq-filtered #(= \. (first (.getName %))))
+       (remove #(.isDirectory %))))
 
 ;;; Deprecated
 (defn content-files
@@ -146,6 +160,13 @@
     (when-not (.exists f)
       (.mkdirs f))))
 
+(defn ensure-file
+  "Ensure that the directory structure to contain this file exists"
+  [f]
+  (let [parts (str/split f #"\/")]
+    (ensure-directory (str/join "/" (butlast parts)))
+    f))
+
 (defn local-file
   "Make a copy of contens of url in a local temp file or supplied filename"
   ([url]
@@ -158,8 +179,21 @@
      (io/copy (.openStream url) local-file)
      (str local-file))))
 
+;;; TODO use this more extensively.
+;;; Note: incorrect for ~fred/blah paths, but I can't think of a reecent occasion of use for that.
+(defn expand-homedir
+  [path]
+  (str/replace path #"^~" (System/getProperty "user.home")))
+
+(defn reader
+  "Return a reader for a file, with homedir expansin"
+  [file]
+  (-> file
+      expand-homedir
+      io/reader))
+
 (defn file-lines [file]
-  (let [r (io/reader file)]
+  (let [r (reader file)]
     (line-seq r)))
 
 (defn file-lines-out [file seq]
@@ -185,6 +219,7 @@
 (defn process-file-lines
   ([f in out]
    (file-lines-out out (map f (file-lines in))))
+  #_                                    ;I'm deprecating this, its fucked me over on multiple occasions
   ([f in]
    (let [out (tmp-file)]
      (process-file-lines f in out)
@@ -198,12 +233,13 @@
      (core/str-replace-multiple map line))))
 
 ;;; TODO generalize to more than one form?
+;;; TODO edn reader is better
 (defn read-from-file
   "Read a form from a file"
   [file]
   (let [rdr (-> file
                 io/file
-                io/reader
+                reader
                 PushbackReader.)]
     (read rdr)))
 
@@ -259,32 +295,51 @@
 
 (defn read-tsv-rows
   "Read a tsv file into vectors"
-  [f]
-  (map #(str/split % #"	")
+  [f & [separator]]
+  (map #(str/split % separator)
        (file-lines f)))
+
+(defn read-csv-rows
+  "Read a csv file into vectors"
+  [f]
+  (read-tsv-rows f #"\,"))
 
 (defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
-  [f]
-  (let [rows (read-tsv-rows f)]
+  [f & [separator]]
+  (let [rows (read-tsv-rows f separator)]
     (map #(zipmap (first rows) %)
          (rest rows))))
 
+(defn read-csv-maps
+  "Read a csv file into maps"
+  [f]
+  (read-tsv-maps f #"\,"))
+
 (defn write-tsv-rows
-  [f rows]
+  [f rows & [separator]]
   (file-lines-out
    f
-   (map (partial str/join \tab) rows)))
+   (map (partial str/join separator) rows)))
 
 (defn write-tsv-maps
-  [f rows]
+  [f rows & [separator]]
   (let [cols (keys (first rows))]
   (file-lines-out
    f
-   (map (partial str/join \tab)
+   (map (partial str/join separator)
         (cons (map name cols)
               (map (fn [row] (map (fn [col] (get row col)) cols))
                    rows))))))
+
+(defn write-csv-rows
+  [f rows]
+  (write-tsv-rows f rows ","))
+
+(defn write-csv-maps
+  [f rows]
+  (write-tsv-maps f rows ","))
+
 
 ;;; TODO parallel fns for .csv
 
@@ -371,7 +426,7 @@
 ;;; ⩇⩆⩇ Processes ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn start-periodic-process!
-  "Start a background process to execute thunk f periodically (every t mssc)"
+  "Start a background process to execute thunk f every t mssc"
   [t f]
   (future
     (loop []
@@ -379,3 +434,15 @@
       (Thread/sleep t)
       (recur)))
   nil)
+
+;;; ⩇⩆⩇ Reflection ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; See clojure.reflect/reflect which does most of what I want
+
+;;; Invoke a private or protected Java method (of no args – that requires more complication)
+(defn invoke-private
+  [o methodname]
+  (let [m (.getDeclaredMethod (class o) nil)]
+    (.invoke m o nil)))
+
+
