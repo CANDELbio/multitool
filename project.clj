@@ -8,7 +8,7 @@
                  [org.clojure/clojurescript "1.11.132"]
                  [net.cgrand/macrovich "0.2.1"]] ;Note: 0.2.2 has a fatal typo?
   :source-paths ["src/cljc" "src/clj" "src/cljs"]
-  :test-paths ["test/cljc" "test/clj"]  ;TODO cljs testing
+  :test-paths ["test/cljc" "test/clj"]
   :plugins [[lein-codox "0.10.8"]
             [lein-doo "0.1.11"]]
   :jvm-opts ["--add-opens" "java.base/java.lang=ALL-UNNAMED"] ;necessary for codox to run

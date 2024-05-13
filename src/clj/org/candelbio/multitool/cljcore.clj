@@ -179,7 +179,6 @@
      (io/copy (.openStream url) local-file)
      (str local-file))))
 
-;;; TODO use this more extensively.
 ;;; Note: incorrect for ~fred/blah paths, but I can't think of a reecent occasion of use for that.
 (defn expand-homedir
   [path]
@@ -192,12 +191,19 @@
       expand-homedir
       io/reader))
 
+(defn writer
+  "Return a writer for a file, with homedir expansin"
+  [file]
+  (-> file
+      expand-homedir
+      io/writer))
+
 (defn file-lines [file]
   (let [r (reader file)]
     (line-seq r)))
 
 (defn file-lines-out [file seq]
-  (let [w (io/writer file)]
+  (let [w (writer file)]
     (binding [*out* w]
       (doseq [l seq]
         (println l))
@@ -363,7 +369,7 @@
 (defn schpit
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
-  (with-open [w (apply io/writer f options)]
+  (with-open [w (apply writer f options)]
     (binding [*print-length* nil
               *out* w]
       (prn content))))
@@ -371,7 +377,7 @@
 (defn schppit
   "Like schpit but will prettyprint."
   [f content & options]
-  (with-open [w (apply io/writer f options)]
+  (with-open [w (apply writer f options)]
     (binding [*print-length* nil]
       (pprint/pprint content w))))
 

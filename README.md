@@ -30,7 +30,7 @@ https://github.com/weavejester/medley
 # Testing
 
     lein test    # clj tests
-	lein doo    # cljs tests
+    lein doo    # cljs tests
 
 # To deploy to Clojars
 
