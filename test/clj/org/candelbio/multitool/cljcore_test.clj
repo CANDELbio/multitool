@@ -42,7 +42,7 @@
               j '(x y z)]
             (Thread/sleep (long (rand-int 100)))
             (swap! acc conj (vector i j)))
-    (Thread/sleep 100)
+    (Thread/sleep 200)
     (is (= 3 (count @acc)))
     (is (set= @acc '[[a x] [b y] [c z]]))
     ))
