@@ -30,7 +30,7 @@
     (pdoseq [i (range 100)]
             (Thread/sleep (long (rand-int 100)))
             (swap! acc conj i))
-    (Thread/sleep 200)                  
+    (Thread/sleep 400)                  
     (is (= 100 (count @acc)))           ;TODO sometimes fails
     (is (= 4950 (reduce + @acc)))
     ;; order should be scrambled (guess there is a very small chance it won't be!)
