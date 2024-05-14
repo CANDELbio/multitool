@@ -20,13 +20,18 @@ jobs:
       - name: Install lein
         run: brew install leiningen
 
+      - name: Install planck
+        run: brew install planck
+
       - name: cache dependencies
         uses: actions/cache@v4
         with:
           path: "~/.m2/repository"
           key: ${{ runner.os }}-${{ hashFiles('project.clj') }}
+
       - name: Run clj tests
         run: lein test
+
       - name: Run cljs tests
         run: lein doo
 
