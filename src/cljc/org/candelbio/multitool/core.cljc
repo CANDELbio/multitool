@@ -129,10 +129,10 @@
         #?(:cljs (js/parseInt ^String inum)
            :clj (Long. ^String inum))
         (catch #?(:clj Throwable :cljs :default)  _ thing))
-      (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
+      (if-let [fnum (re-matches #"-?\d*\.?\d*(E-?\d+)?" thing)]
         (try
-          #?(:cljs (js/parseFloat fnum)
-             :clj (Double. fnum))
+          #?(:cljs (js/parseFloat (first fnum))
+             :clj (Double. (first fnum)))
           (catch #?(:clj Throwable :cljs "default") _ thing))
         thing))
     :else thing))
@@ -1104,16 +1104,20 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                           :else (generate %))
                    struct)))
 
+;;; TODO needs tests/examples
+(def ^:dynamic *side-walk-context* ())
+
 (defn side-walk
   "Walks form, an arbitrary data structure, evaluating f on each element for side effects. Note: has nothing to do with the standard (functional) walker, and maybe should have a different name (traverse?)"
   [f form]
   (do 
     (f form)
-    (cond
-      (coll? form) (doseq [elt form] (side-walk f elt))
-      (map-entry? form)
-      (do (side-walk f (key form))
-          (side-walk f (val form))))))
+    (binding [*side-walk-context* (cons form *side-walk-context*)]
+      (cond
+        (coll? form) (doseq [elt form] (side-walk f elt))
+        (map-entry? form)
+        (do (side-walk f (key form))
+            (side-walk f (val form)))))))
 
 ;;; Formerly side-reduce
 (defn walk-reduce

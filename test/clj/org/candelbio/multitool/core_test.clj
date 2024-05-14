@@ -303,6 +303,10 @@
   (is (= "foo" (coerce-numeric "foo")))
   (is (= "" (coerce-numeric "")))
   (is (= + (coerce-numeric +)))
+  (is (= 1.7 (coerce-numeric "1.7")))
+  (is (= -1.7 (coerce-numeric "-1.7")))
+  (is (= 1700.0 (coerce-numeric "1.7E3")))
+  (is (= 0.017 (coerce-numeric "1.7E-2")))
   )
 
 (deftest coerce-numeric-hard-test
@@ -312,6 +316,9 @@
   (is (= nil (coerce-numeric-hard "foo")))
   (is (= nil (coerce-numeric-hard "")))
   (is (= nil (coerce-numeric-hard +)))
+  (is (= 1.7 (coerce-numeric-hard "1.7")))
+  (is (= -1.7 (coerce-numeric-hard "-1.7")))
+  (is (= 1700.0 (coerce-numeric-hard "1.7E3")))
   )
 
 ;;; from Blood Meridian, Cormac McCarthy
