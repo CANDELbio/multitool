@@ -20,10 +20,13 @@
 ;;; \p{L} means match any char of any language.
 ;;; TODO doesn't work at all in cljs
 ;;; TODO should have a version that skips lower-casing
+
 (defn tokens
   [s]
   (map str/lower-case 
-       (re-seq #"[\p{L}'\d]+" s)))
+       (re-seq #?(:clj #"[\p{L}'\d]+"
+                  :cljs #"[\w\d']+")    ;TODO there's a better translation of \p{L} at https://stackoverflow.com/questions/280712/how-can-i-use-unicode-aware-regular-expressions-in-javascript but it is too big and ugly to use
+                  s)))
 
 (defn bigrams
   [tokens]

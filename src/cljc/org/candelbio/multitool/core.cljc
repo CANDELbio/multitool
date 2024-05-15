@@ -3,10 +3,14 @@
   (:require
    [clojure.string :as str]
    [clojure.set :as set]
-   [clojure.walk :as walk]
-   )
+   [clojure.walk :as walk])
+  #?(:cljs (:require-macros
+            [net.cgrand.macrovich :as macros]
+            [org.candelbio.multitool.core :refer [doseq* ignore-errors]])
+     :clj (:require [net.cgrand.macrovich :as macros]))
   #?(:clj  
-     (:import (java.util.regex Pattern))))
+     (:import (java.util.regex Pattern)
+              (clojure.lang MapEntry))))
 
 ;;; Warning: some hacks in here could be considered poor Clojure form. 
 ;;; TODO Probably time to split this file into multiple
@@ -51,6 +55,7 @@
   (zipmap (keys @memoizers)
           (map (comp count deref) (vals @memoizers))))
 
+(macros/deftime
 ;;; TODO This and its usages needs to be reworked for CLJS (Why? Macros probably)
 (defmacro defn-memoized
   "Like `defn`, but produces a memoized function"
@@ -64,13 +69,7 @@
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
   [var & body]
   `(def ~var (delay ~@body)))
-
-;;; TODO resettable atoms, maybe integrated with this, maybe separate.
-;;; (def-resettable x (atom {}))
-;;; (reset-resettables) → does the obvious thing
-;;; The idea is that it should be possible to reset to a known state.
-;;; Seems unclojurish
-
+)
 
 ;;; ⩇⩆⩇ Exception handling ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -78,11 +77,12 @@
   [x]
   (instance? x #?(:clj Throwable :cljs js/Error)))
 
+(macros/deftime
 (defmacro ignore-errors
   "Execute `body`; if an exception occurs ignore it and return `nil`. Note: strongly deprecated for production code."
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e# nil)))
+        (catch ~(macros/case :clj Throwable :cljs :default) e# nil)))
 
 (defmacro ignore-report
   "Execute `body`, if an exception occurs, print a message and continue"
@@ -95,9 +95,9 @@
   "Execute `body`, if an exception occurs, return it"
   [& body]
   `(try (do ~@body)
-        (catch #?(:clj Throwable :cljs :default) e#
+        (catch ~(macros/case :clj Throwable :cljs :default) e#
           e#)))
-
+)
 (defn error-handling-fn
   "Returns a fn that acts like f, but return value is (true result) or (false errmsg) in the case of an error"
   [f]
@@ -109,6 +109,12 @@
         (list false (str "Caught exception: " e))))))
 
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+(defn truncate-string
+  [n s]
+  (if (> (count s) n)
+    (str (subs s 0 n) "…")
+    s))
 
 (defn coerce-numeric
   "Attempt to turn thing into a number (long or double).
@@ -123,10 +129,10 @@
         #?(:cljs (js/parseInt ^String inum)
            :clj (Long. ^String inum))
         (catch #?(:clj Throwable :cljs :default)  _ thing))
-      (if-let [fnum (re-matches #"-?\d*\.?\d*" thing)]
+      (if-let [fnum (re-matches #"-?\d*\.?\d*(E-?\d+)?" thing)]
         (try
-          #?(:cljs (js/parseFloat fnum)
-             :clj (Double. fnum))
+          #?(:cljs (js/parseFloat (first fnum))
+             :clj (Double. (first fnum)))
           (catch #?(:clj Throwable :cljs "default") _ thing))
         thing))
     :else thing))
@@ -231,7 +237,7 @@
   #?(:clj  
      (Pattern/quote s)
      :cljs
-     (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\])" "\\$1")))
+     (str/replace s #"([)\/\,\.\,\*\+\?\|\(\)\[\]\{\}\\\$])" "\\$1")))
 
 (defn re-pattern-literal
   "Return a regex that will match the literal string"
@@ -256,15 +262,15 @@
    (defn re-substitute
      "Match re against s, apply subfn to matching substrings. Return list of fragments, processed and otherwise"
      ([re s subfn]
-     (let [matcher (re-matcher re s)]
-       (loop [fragments ()
-              start 0]
-         (if (.find matcher)
-           (recur (cons (subfn (subs s (.start matcher) (.end matcher)))
-                        (cons (subs s start (.start matcher)) fragments))
-                  (.end matcher))
-           (reverse
-            (cons (subs s start) fragments))))))
+      (let [matcher (re-matcher re s)]
+        (loop [fragments ()
+               start 0]
+          (if (.find matcher)
+            (recur (cons (subfn (subs s (.start matcher) (.end matcher)))
+                         (cons (subs s start (.start matcher)) fragments))
+                   (.end matcher))
+            (reverse
+             (cons (subs s start) fragments))))))
      ([re s]
       (re-substitute re s identity))))
 
@@ -309,20 +315,20 @@
          re ""
          curly-depth 0]
     (let [[c j] stream]
-        (cond
-         (nil? c) (re-pattern (str (if (= \. (first s)) "" "(?=[^\\.])") re))
-         (= c \\) (recur (nnext stream) (str re c c) curly-depth)
-         (= c \/) (recur (next stream) (str re (if (= \. j) c "/(?=[^\\.])"))
-                         curly-depth)
-         (= c \*) (recur (next stream) (str re "[^/]*") curly-depth)
-         (= c \?) (recur (next stream) (str re "[^/]") curly-depth)
-         (= c \{) (recur (next stream) (str re \() (inc curly-depth))
-         (= c \}) (recur (next stream) (str re \)) (dec curly-depth))
-         (and (= c \,) (< 0 curly-depth)) (recur (next stream) (str re \|)
+      (cond
+        (nil? c) (re-pattern (str (if (= \. (first s)) "" "(?=[^\\.])") re))
+        (= c \\) (recur (nnext stream) (str re c c) curly-depth)
+        (= c \/) (recur (next stream) (str re (if (= \. j) c "/(?=[^\\.])"))
+                        curly-depth)
+        (= c \*) (recur (next stream) (str re "[^/]*") curly-depth)
+        (= c \?) (recur (next stream) (str re "[^/]") curly-depth)
+        (= c \{) (recur (next stream) (str re \() (inc curly-depth))
+        (= c \}) (recur (next stream) (str re \)) (dec curly-depth))
+        (and (= c \,) (< 0 curly-depth)) (recur (next stream) (str re \|)
+                                                curly-depth)
+        (#{\. \( \) \| \+ \^ \$ \@ \%} c) (recur (next stream) (str re \\ c)
                                                  curly-depth)
-         (#{\. \( \) \| \+ \^ \$ \@ \%} c) (recur (next stream) (str re \\ c)
-                                                  curly-depth)
-         :else (recur (next stream) (str re c) curly-depth)))))
+        :else (recur (next stream) (str re c) curly-depth)))))
 
 
 ;;; ⩇⩆⩇ Pattern matching ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -355,6 +361,11 @@
 
 ;;; ⩇⩆⩇ Keywords, names, namespaces ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn keyword-conc
+  "Concatenate parts (which are keywords, strings, anything acceptable to name) into a keyword"
+  [& parts]
+  (keyword (str/join "-" (map name parts))))
+
 (defn keyword-safe
   "Make a string into a readable keyword by replacing certain punctuation"
   [str]
@@ -372,8 +383,9 @@
 (defn safe-name
   [thing]
   "name of thing, or nil"
-  (when #?(:clj (instance? clojure.lang.Named thing)
-           :cljs (.-name thing))
+  (when (and thing
+             #?(:clj (instance? clojure.lang.Named thing)
+                :cljs (.-name thing)))
     (name thing)))
 
 (defn bstr
@@ -388,8 +400,8 @@
   [struct]
   (walk/postwalk 
    #(if (symbol? %)
-    (symbol nil (name %))
-    %)
+      (symbol nil (name %))
+      %)
    struct))
 
 ;;; ⩇⩆⩇ Variations on standard predicates ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -447,17 +459,25 @@
   [seq]
   (concat seq (repeat nil)))
 
+;;; I thought split-with did this, but no. Surely this in core?
+(defn divide-with
+  [p coll]
+  (let [groups (group-by (comp true? p) coll)]
+    [(get groups true) (get groups false)]))
+
 (defn mapf
-  "Like map but filters out nullish? values"
+  "Like map but filters out nullish? values. Close to clojure.core/keep but uses different test."
   [f & args]
   (remove nullish? (apply map f args)))
 
+(macros/deftime
 (defmacro forf
   "Like for but filters out nullish? values"
   [forms body]
   `(remove nullish?
            (for ~forms
              ~body)))
+)
 
 (defn mapcatf
   "Like mapcat but filters out nullish? values"
@@ -470,6 +490,20 @@
   (if (sequential? thing)
     (doall thing)
     thing))
+
+(defn following-elt
+  [elt seq]
+  (loop [tail seq]
+    (cond (empty? tail) nil
+          (= (first tail) elt) (second tail)
+          :else (recur (rest tail)))))
+
+(defn preceding-elt
+  [elt seq]
+  (loop [tail seq]
+    (cond (empty? tail) nil
+          (= (second tail) elt) (first tail)
+        :else (recur (rest tail)))))
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
@@ -603,7 +637,16 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
-;;; TODO should probably use coll? and rename
+;;; TODO recursive so risk of stack blowout
+(defn intercalate
+  "Given 2 seqs, produce a seq with alternating elements."
+  [l1 l2]
+  (cond (empty? l1) l2
+        (empty? l2) l1
+        :else (cons (first l1)
+                    (cons (first l2)
+                          (intercalate (rest l1) (rest l2))))))
+
 (defn sequencify
   "Turn thing into a sequence if it already isn't one"
   [thing]
@@ -711,6 +754,7 @@
   [f chunk-size l]
   (mapcat f (partition-all chunk-size l)))
 
+(macros/deftime
 (defmacro doseq*
   "Like doseq, but goes down lists in parallel rather than nested. Assumes lists are same size."
   {:style/indent 1}
@@ -739,6 +783,7 @@
 (defmacro forcat
   [vars body]
   `(apply concat (for ~vars ~body)))
+)
 
 ;;; ⩇⩆⩇ Vectors ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -800,10 +845,24 @@
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
+(defn map-keys-recursive
+  "Map f over the keys of hashmap, and any nested hashmaps"
+  [f hashmap]
+  (if (map? hashmap)
+    (reduce-kv (fn [acc k v] (assoc acc (f k) (map-keys-recursive f v))) {} hashmap)
+    hashmap))
+
+(defn dehumanize
+  "Convert string keys to keywords, recursively"
+  [map]
+  (map-keys-recursive (comp keyword-safe str/lower-case) map))
+
 (defn map-key-values
   "Map f over [k v] of hashmap, returning new v"
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc k (f k v))) {} hashmap))
+
+;;; TODO map-values-recursive, map-key-values-recursive
 
 (defn index-by 
   "Return a map of the elements of coll indexed by (f elt). Similar to group-by, but overwrites elts with same index rather than producing vectors. "
@@ -907,12 +966,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (map-values
    (partial into #{})
    (reduce (fn [m [k v]]
-            (reduce (fn [mm elt]
-                      (assoc mm elt (cons k (get mm elt))))
-                    m
-                    (sequencify v)))
-          {}
-          m)))
+             (reduce (fn [mm elt]
+                       (assoc mm elt (cons k (get mm elt))))
+                     m
+                     (sequencify v)))
+           {}
+           m)))
 
 (defn clean-map
   "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
@@ -996,6 +1055,39 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; Some common patterns
+
+(defn walk-filtered
+  "Walk thing, applying f to every object that passes filter"
+  [f thing filter]
+  (walk/postwalk
+   (fn [thing]
+     (if (filter thing)
+       (f thing)
+       thing))
+   thing))
+
+(defn walk-map-entries
+  "Walk all the map entries in thing"
+  [f thing]
+  (walk-filtered f thing map-entry?))
+
+;;; Unaccountably not in the language
+#?(:clj
+   (defn map-entry
+     "Make a map entry"
+     ([k v]
+      (MapEntry/create k v))
+     ([[k v]]
+      (map-entry k v)))
+   )
+
+(defn walk-keys
+  "Walk all the map entries in thing matching key (a key or set)"
+  [f keys thing]
+  (let [keys (set (if (coll? keys) keys [keys]))]
+    (walk-filtered f thing #(and (map-entry? %) (keys (first %))))))
+
 ;;; Previously subst, but that collides with clojure.core
 (defn substitute
   "vmap defines a substitution; Walk `struct`, replacing any keys that appear in vmap with corresponding value."
@@ -1015,16 +1107,20 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                           :else (generate %))
                    struct)))
 
+;;; TODO needs tests/examples
+(def ^:dynamic *side-walk-context* ())
+
 (defn side-walk
   "Walks form, an arbitrary data structure, evaluating f on each element for side effects. Note: has nothing to do with the standard (functional) walker, and maybe should have a different name (traverse?)"
   [f form]
   (do 
     (f form)
-    (cond
-      (coll? form) (doseq [elt form] (side-walk f elt))
-      (map-entry? form)
-      (do (side-walk f (key form))
-          (side-walk f (val form))))))
+    (binding [*side-walk-context* (cons form *side-walk-context*)]
+      (cond
+        (coll? form) (doseq [elt form] (side-walk f elt))
+        (map-entry? form)
+        (do (side-walk f (key form))
+            (side-walk f (val form)))))))
 
 ;;; Formerly side-reduce
 (defn walk-reduce
@@ -1042,11 +1138,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [f thing]
   (persistent!
    (walk-reduce (fn [acc elt]
-                 (if-let [it (f elt)]
-                   (conj! acc it)
-                   acc))
-               thing
-               (transient []))))
+                  (if-let [it (f elt)]
+                    (conj! acc it)
+                    acc))
+                thing
+                (transient []))))
 
 (defn walk-find
   "Walk over thing and return the first val for which f is non-nil"
@@ -1060,7 +1156,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     nil
     (catch #?(:clj clojure.lang.ExceptionInfo
               :cljs ExceptionInfo)
-              e
+        e
       (:value (ex-data e)))))
 
 (defn clean-walk
@@ -1076,6 +1172,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                     %)
                  struct))
 
+(macros/usetime
 (defn side-walk-paths
   ([f form path]
    (do 
@@ -1099,6 +1196,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
         (when (pred thing)
           (collector path)))
       form))))
+)
 
 (comment
   (def x {:a 1 :b {:c 2 :d 3 :e [1 7 2 4] :f [{:x 1} {:y 2}]}})
@@ -1145,13 +1243,14 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; Use fixed-point combinator to memoize a recursive function
 ;;; Stolen from https://stackoverflow.com/questions/27445876/is-there-a-simpler-way-to-memoize-a-recursive-let-fn
+(macros/deftime
 (defmacro memoize-rec
   [form]
   (let [[fn* fname params & body] form
         params-with-fname (vec (cons fname params))]
     `(let [f# (memoize (fn ~params-with-fname
                          (let [~fname (partial ~fname ~fname)] ~@body)))]
-       (partial f# f#))))
+       (partial f# f#)))))
 
 ;;; Already in clojure, but I like this name better.
 ;;; (defaulted f x) returns a new fn that will substitute x for nil args (f is called on x)
@@ -1191,8 +1290,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     (if-let [l (some #(and (sequential? %) (count %)) args)]
       (let [vargs (map #(if (sequential? %) (vec %) %) args)] ;vectorize args
         (mapv (fn [i]
-               (apply f (map (fn [arg] (if (vector? arg) (get arg i) arg)) vargs)))
-             (range l)))
+                (apply f (map (fn [arg] (if (vector? arg) (get arg i) arg)) vargs)))
+              (range l)))
       (apply f args))))
 
 ;;; TODO vectorised functions (+*, -* etc) for all basic arith
@@ -1218,8 +1317,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 (defn random-element
   "Return a random element from a seq"
-  [l]
-  (nth l (rand-int (count l))))
+  [seq]
+  (nth seq (rand-int (count seq))))
+
+(defn random-elements
+  "Return n random elements from a seq"
+  [n seq]
+  (repeatedly n #(random-element seq)))
 
 (defn round
   "Round the argument"

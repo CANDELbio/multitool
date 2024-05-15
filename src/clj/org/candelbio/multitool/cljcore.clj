@@ -85,11 +85,22 @@
 
 ;;; Note: probably better to avoid these and use raynes/fs https://github.com/Raynes/fs
 
+;;; Based on clojure.core/file-seq
+(defn file-seq-filtered
+  "A tree seq on java.io.Files"
+  [remove-fn dir]
+  (tree-seq
+   (fn [^java.io.File f] (.isDirectory f))
+   (fn [^java.io.File d] (remove remove-fn (seq (.listFiles d))))
+   dir))
+
 (defn list-dir-recursive
-  "Like fs/list-dir, but recurses through subdirectories (and does not include subdirs in result)"
+  "Like fs/list-dir, but recurses through subdirectories and does not include dirs in result. Ignore .dotfiles" ; TODO option to include dotfiles
   [dir]
-  (remove #(.isDirectory %)
-          (file-seq (io/as-file dir))))
+  (->> dir
+       io/as-file
+       (file-seq-filtered #(= \. (first (.getName %))))
+       (remove #(.isDirectory %))))
 
 ;;; Deprecated
 (defn content-files
@@ -149,6 +160,13 @@
     (when-not (.exists f)
       (.mkdirs f))))
 
+(defn ensure-file
+  "Ensure that the directory structure to contain this file exists"
+  [f]
+  (let [parts (str/split f #"\/")]
+    (ensure-directory (str/join "/" (butlast parts)))
+    f))
+
 (defn local-file
   "Make a copy of contens of url in a local temp file or supplied filename"
   ([url]
@@ -161,12 +179,31 @@
      (io/copy (.openStream url) local-file)
      (str local-file))))
 
+;;; Note: incorrect for ~fred/blah paths, but I can't think of a reecent occasion of use for that.
+(defn expand-homedir
+  [path]
+  (str/replace path #"^~" (System/getProperty "user.home")))
+
+(defn reader
+  "Return a reader for a file, with homedir expansin"
+  [file]
+  (-> file
+      expand-homedir
+      io/reader))
+
+(defn writer
+  "Return a writer for a file, with homedir expansin"
+  [file]
+  (-> file
+      expand-homedir
+      io/writer))
+
 (defn file-lines [file]
-  (let [r (io/reader file)]
+  (let [r (reader file)]
     (line-seq r)))
 
 (defn file-lines-out [file seq]
-  (let [w (io/writer file)]
+  (let [w (writer file)]
     (binding [*out* w]
       (doseq [l seq]
         (println l))
@@ -188,6 +225,7 @@
 (defn process-file-lines
   ([f in out]
    (file-lines-out out (map f (file-lines in))))
+  #_                                    ;I'm deprecating this, its fucked me over on multiple occasions
   ([f in]
    (let [out (tmp-file)]
      (process-file-lines f in out)
@@ -207,7 +245,7 @@
   [file]
   (let [rdr (-> file
                 io/file
-                io/reader
+                reader
                 PushbackReader.)]
     (read rdr)))
 
@@ -263,34 +301,50 @@
 
 (defn read-tsv-rows
   "Read a tsv file into vectors"
-  [f]
-  (map #(str/split % #"	")
+  [f & [separator]]
+  (map #(str/split % separator)
        (file-lines f)))
 
 (defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
-  [f]
-  (let [rows (read-tsv-rows f)]
+  [f & [separator]]
+  (let [rows (read-tsv-rows f separator)]
     (map #(zipmap (first rows) %)
          (rest rows))))
 
 (defn write-tsv-rows
-  [f rows]
+  [f rows & [separator]]
   (file-lines-out
    f
-   (map (partial str/join \tab) rows)))
+   (map (partial str/join separator) rows)))
 
 (defn write-tsv-maps
-  [f rows]
+  [f rows & [separator]]
   (let [cols (keys (first rows))]
   (file-lines-out
    f
-   (map (partial str/join \tab)
+   (map (partial str/join separator)
         (cons (map name cols)
               (map (fn [row] (map (fn [col] (get row col)) cols))
                    rows))))))
 
-;;; TODO parallel fns for .csv
+(defn read-csv-rows
+  "Read a csv file into vectors"
+  [f]
+  (read-tsv-rows f #"\,"))
+
+(defn read-csv-maps
+  "Read a csv file into maps"
+  [f]
+  (read-tsv-maps f #"\,"))
+
+(defn write-csv-rows
+  [f rows]
+  (write-tsv-rows f rows ","))
+
+(defn write-csv-maps
+  [f rows]
+  (write-tsv-maps f rows ","))
 
 (defn open-url
   [url]
@@ -312,7 +366,7 @@
 (defn schpit
   "Like core/spit, but will do something sensible for lazy seqs."
   [f content & options]
-  (with-open [w (apply io/writer f options)]
+  (with-open [w (apply writer f options)]
     (binding [*print-length* nil
               *out* w]
       (prn content))))
@@ -320,7 +374,7 @@
 (defn schppit
   "Like schpit but will prettyprint."
   [f content & options]
-  (with-open [w (apply io/writer f options)]
+  (with-open [w (apply writer f options)]
     (binding [*print-length* nil]
       (pprint/pprint content w))))
 
