@@ -40,13 +40,17 @@
   (is (= 3 (following-elt 2 [1 2 3 4])))
   (is (nil? (following-elt 20 [1 2 3 4])))
   (is (nil? (following-elt 4 [1 2 3 4])))
-  (is (nil? (following-elt 1 []))))
+  (is (nil? (following-elt 1 [])))
+  (testing "stack safety"
+    (is (= 90001 (following-elt 90000 (range 100000))))))
 
 (deftest preceding-elt-test
   (is (= 3 (preceding-elt 4 [1 2 3 4])))
   (is (nil? (preceding-elt 20 [1 2 3 4])))
   (is (nil? (preceding-elt 1 [1 2 3 4])))
-  (is (nil? (preceding-elt 1 []))))
+  (is (nil? (preceding-elt 1 [])))
+  (testing "stack safety"
+    (is (= 89999 (preceding-elt 90000 (range 100000))))))
 
 (deftest some-thing-test
   (is (= 2 (some-thing even? '(1 2 3 4)))))

@@ -262,15 +262,15 @@
    (defn re-substitute
      "Match re against s, apply subfn to matching substrings. Return list of fragments, processed and otherwise"
      ([re s subfn]
-     (let [matcher (re-matcher re s)]
-       (loop [fragments ()
-              start 0]
-         (if (.find matcher)
-           (recur (cons (subfn (subs s (.start matcher) (.end matcher)))
-                        (cons (subs s start (.start matcher)) fragments))
-                  (.end matcher))
-           (reverse
-            (cons (subs s start) fragments))))))
+      (let [matcher (re-matcher re s)]
+        (loop [fragments ()
+               start 0]
+          (if (.find matcher)
+            (recur (cons (subfn (subs s (.start matcher) (.end matcher)))
+                         (cons (subs s start (.start matcher)) fragments))
+                   (.end matcher))
+            (reverse
+             (cons (subs s start) fragments))))))
      ([re s]
       (re-substitute re s identity))))
 
@@ -315,20 +315,20 @@
          re ""
          curly-depth 0]
     (let [[c j] stream]
-        (cond
-         (nil? c) (re-pattern (str (if (= \. (first s)) "" "(?=[^\\.])") re))
-         (= c \\) (recur (nnext stream) (str re c c) curly-depth)
-         (= c \/) (recur (next stream) (str re (if (= \. j) c "/(?=[^\\.])"))
-                         curly-depth)
-         (= c \*) (recur (next stream) (str re "[^/]*") curly-depth)
-         (= c \?) (recur (next stream) (str re "[^/]") curly-depth)
-         (= c \{) (recur (next stream) (str re \() (inc curly-depth))
-         (= c \}) (recur (next stream) (str re \)) (dec curly-depth))
-         (and (= c \,) (< 0 curly-depth)) (recur (next stream) (str re \|)
+      (cond
+        (nil? c) (re-pattern (str (if (= \. (first s)) "" "(?=[^\\.])") re))
+        (= c \\) (recur (nnext stream) (str re c c) curly-depth)
+        (= c \/) (recur (next stream) (str re (if (= \. j) c "/(?=[^\\.])"))
+                        curly-depth)
+        (= c \*) (recur (next stream) (str re "[^/]*") curly-depth)
+        (= c \?) (recur (next stream) (str re "[^/]") curly-depth)
+        (= c \{) (recur (next stream) (str re \() (inc curly-depth))
+        (= c \}) (recur (next stream) (str re \)) (dec curly-depth))
+        (and (= c \,) (< 0 curly-depth)) (recur (next stream) (str re \|)
+                                                curly-depth)
+        (#{\. \( \) \| \+ \^ \$ \@ \%} c) (recur (next stream) (str re \\ c)
                                                  curly-depth)
-         (#{\. \( \) \| \+ \^ \$ \@ \%} c) (recur (next stream) (str re \\ c)
-                                                  curly-depth)
-         :else (recur (next stream) (str re c) curly-depth)))))
+        :else (recur (next stream) (str re c) curly-depth)))))
 
 
 ;;; ⩇⩆⩇ Pattern matching ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -400,8 +400,8 @@
   [struct]
   (walk/postwalk 
    #(if (symbol? %)
-    (symbol nil (name %))
-    %)
+      (symbol nil (name %))
+      %)
    struct))
 
 ;;; ⩇⩆⩇ Variations on standard predicates ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -466,7 +466,7 @@
     [(get groups true) (get groups false)]))
 
 (defn mapf
-  "Like map but filters out nullish? values"
+  "Like map but filters out nullish? values. Close to clojure.core/keep but uses different test."
   [f & args]
   (remove nullish? (apply map f args)))
 
@@ -493,15 +493,17 @@
 
 (defn following-elt
   [elt seq]
-  (cond (empty? seq) nil
-        (= (first seq) elt) (second seq)
-        :else (following-elt elt (rest seq))))
+  (loop [tail seq]
+    (cond (empty? tail) nil
+          (= (first tail) elt) (second tail)
+          :else (recur (rest tail)))))
 
 (defn preceding-elt
   [elt seq]
-  (cond (empty? seq) nil
-        (= (second seq) elt) (first seq)
-        :else (preceding-elt elt (rest seq))))
+  (loop [tail seq]
+    (cond (empty? tail) nil
+          (= (second tail) elt) (first tail)
+        :else (recur (rest tail)))))
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
@@ -635,6 +637,7 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+;;; TODO recursive so risk of stack blowout
 (defn intercalate
   "Given 2 seqs, produce a seq with alternating elements."
   [l1 l2]
@@ -963,12 +966,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (map-values
    (partial into #{})
    (reduce (fn [m [k v]]
-            (reduce (fn [mm elt]
-                      (assoc mm elt (cons k (get mm elt))))
-                    m
-                    (sequencify v)))
-          {}
-          m)))
+             (reduce (fn [mm elt]
+                       (assoc mm elt (cons k (get mm elt))))
+                     m
+                     (sequencify v)))
+           {}
+           m)))
 
 (defn clean-map
   "Remove values from 'map' based on applying 'pred' to value (default is `nullish?`). "
@@ -1135,11 +1138,11 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [f thing]
   (persistent!
    (walk-reduce (fn [acc elt]
-                 (if-let [it (f elt)]
-                   (conj! acc it)
-                   acc))
-               thing
-               (transient []))))
+                  (if-let [it (f elt)]
+                    (conj! acc it)
+                    acc))
+                thing
+                (transient []))))
 
 (defn walk-find
   "Walk over thing and return the first val for which f is non-nil"
@@ -1153,7 +1156,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     nil
     (catch #?(:clj clojure.lang.ExceptionInfo
               :cljs ExceptionInfo)
-              e
+        e
       (:value (ex-data e)))))
 
 (defn clean-walk
@@ -1287,8 +1290,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     (if-let [l (some #(and (sequential? %) (count %)) args)]
       (let [vargs (map #(if (sequential? %) (vec %) %) args)] ;vectorize args
         (mapv (fn [i]
-               (apply f (map (fn [arg] (if (vector? arg) (get arg i) arg)) vargs)))
-             (range l)))
+                (apply f (map (fn [arg] (if (vector? arg) (get arg i) arg)) vargs)))
+              (range l)))
       (apply f args))))
 
 ;;; TODO vectorised functions (+*, -* etc) for all basic arith
