@@ -280,12 +280,13 @@
             (str/replace s match repl))
           string map))
 
-(def param-regex #"\{(.*?)\}")          ;extract the template fields from the entity
-(def double-braces #"\{\{(.*?)\}\}")
-(def javascript-templating #"\$\{(.*?)\}")
+(def param-regex #"\{([\w\-_]*?)\}")          ;extract the template fields from the entity
+(def double-braces #"\{\{([\w\-_]*?)\}\}")
+(def javascript-templating #"\$\{([\w\-_]*?)\}")
 
 ;;; Note: default is single braces for parameters {foo}, but :param-regex double-braces option {{foo}} is probably better, works in more contexts.
 ;;; :param-regex javascript-templating for compatibility with javascript templating ${foo}
+;;; Variables can contain word characters, - or_
 (defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
   [template bindings & {:keys [param-regex key-fn] :or {param-regex param-regex key-fn identity}}]
@@ -448,12 +449,6 @@
 
 ;;; ⩇⩆⩇ Sequences ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-(defn real-vector?
-  "True if thing is a real vector, not a map entry"
-  [thing]
-  (and (vector? thing)
-       (not (map-entry? thing))))
-
 (defn extend-seq
   "Return a seq padded out to infinity with nils"
   [seq]
@@ -504,6 +499,16 @@
     (cond (empty? tail) nil
           (= (second tail) elt) (first tail)
         :else (recur (rest tail)))))
+
+;;; TODO insert-berfore
+(defn insert-after
+  [seq elt after]
+  (loop [tail seq
+         new []]
+    (cond (empty? tail) (conj new elt)
+          (= (first tail) after) (concat (conj (conj new (first tail)) elt) (rest tail))
+          :else (recur (rest tail)
+                       (conj new (first tail))))))
 
 ;;; Convention: <f>= names a fn that is like fn but takes an element to test for equality in place of a predicate.
 (defn remove= 
@@ -787,10 +792,28 @@
 
 ;;; ⩇⩆⩇ Vectors ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn real-vector?
+  "True iff thing is a real vector. Shouldn't be necessary, but (vector? (first {:a 1})) ⇒ true. Most useful for walker fns."
+  [thing]
+  (and (vector? thing)
+       (not (map-entry? thing))))
+
 (defn lconj
   "Conj a value to the front (left) of vector. Not performant"
   [v e]
   (vec (cons e v)))
+
+(defn concatv
+  "Concatenate vectors"
+  [& args]
+  (vec (apply concat args)))
+
+;;; TODO Delete, insert
+;;; Provisional, clean this up and have a predicate version.
+(defn vdelete=
+  [elt v]
+  (vec (remove= elt v)))
+
 
 ;;; ⩇⩆⩇ Maps ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -845,6 +868,7 @@
   [f hashmap]
   (reduce-kv (fn [acc k v] (assoc acc (f k) v)) {} hashmap))
 
+;;; Note: kind of useless, needs to walk vectors as well for the common use case (keywordification)
 (defn map-keys-recursive
   "Map f over the keys of hashmap, and any nested hashmaps"
   [f hashmap]
@@ -1082,11 +1106,18 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
       (map-entry k v)))
    )
 
+;;; TODO name is misleading
 (defn walk-keys
   "Walk all the map entries in thing matching key (a key or set)"
   [f keys thing]
   (let [keys (set (if (coll? keys) keys [keys]))]
     (walk-filtered f thing #(and (map-entry? %) (keys (first %))))))
+
+
+(defn walk-all-keys 
+  "Walk all the keywords in thing recursively"
+  [f thing]
+  (walk-map-entries (fn [[k v]] [(f k) v]) thing))
 
 ;;; Previously subst, but that collides with clojure.core
 (defn substitute
@@ -1296,6 +1327,28 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; TODO vectorised functions (+*, -* etc) for all basic arith
 
+;;; TODO branch for maps? (into {} (map...))
+(defn mapx
+  [f seq]
+  (if (vector? seq)
+    (mapv f seq)
+    (map f seq)))
+
+  ;; takes singleton and returns a vector in all cases
+(defn get*
+  [thing key]
+  (cond (= :* key) thing                                 ;huh
+        (= :m* key) (into [] thing)
+        :else [(get thing key)]))
+
+(defn get-in*
+  [thing keyseq]
+  (if (empty? keyseq)
+    [thing]
+    (mapcat (fn [elt] (get-in* elt (rest keyseq))) 
+            (get* thing (first keyseq)))))
+
+
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; (things that are more for stats or geometry are in org.candelbio.multitool.math)
@@ -1405,3 +1458,17 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [attr hashmap]
   (map-key-values (fn [k v] (assoc v attr k)) hashmap))
 
+;;; ⩇⩆⩇ Mapseqs (aka "data") ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; Note: these are for casual use, you probably want tablecloth if doing a lot of data operations
+
+(defn pivot
+  [mapseq row-id-col row-id-field pivot-key-field pivot-value-field]
+  (mapcat (fn [row]
+            (let [row-id (get row row-id-col)]
+              (map (fn [[k v]]
+                     {row-id-field row-id
+                      pivot-key-field k
+                      pivot-value-field v})
+                   row)))
+          mapseq))
