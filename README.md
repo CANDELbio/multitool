@@ -12,17 +12,6 @@ This has managed to avoid having (almost) any dependencies except for Clojure it
 
 ![Multitool](https://ae01.alicdn.com/kf/HTB1Z4FMaOLxK1Rjy0Ffq6zYdVXaA/2019-New-Design-Multi-Tools-Plier-Folding-Knife-Survival-Multitool-Outdoor-EDC-Gear-Camping-Fishing-Tool.jpg)
 
-# Contents
-
-- `core.cljc`
- Simple, general abstractions. 
-- `cljcore.clj`
- Same, but specific to Java environment
- - `math.cljc`
- Simple math and statistics fns
- - `nlp.cljc`
- simple string tokenization
-
 # See also
 
 https://github.com/weavejester/medley
@@ -50,4 +39,4 @@ You will need to supply credentials (user name and authentication token).
 # License
 
 Released under Apache 2 license. See the [LICENSE](LICENSE.md) file for details.
-
+s

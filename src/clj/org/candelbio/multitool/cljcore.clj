@@ -79,6 +79,15 @@
       io/input-stream
       slurp))
 
+;;; From Ken/Utilza
+(defn error-message
+  "Given an exception, returns the error message"
+  [e]
+  (or (some-> e ex-data :errors)
+      (some-> e ex-data :error .getMessage)
+      (some-> e ex-data :error)
+      (some-> e .getMessage)))
+
 ;;; TODO Java EDN resource, see also read-from-file
 
 ;;; ⩇⩆⩇ Files ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -431,7 +440,7 @@
 (defn start-periodic-process!
   "Start a background process to execute thunk f every t mssc"
   [t f]
-  (future
+  (future                               ;TODO no reason for a future, no value 
     (loop []
       (f)
       (Thread/sleep t)
@@ -447,5 +456,21 @@
   [o methodname]
   (let [m (.getDeclaredMethod (class o) nil)]
     (.invoke m o nil)))
+
+
+;;; ⩇⩆⩇ Git ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
+
+;;; See https://github.com/clj-jgit/clj-jgit 
+
+(defn git-log-info
+  "returns [user email timestamp msg commit] of last commit for file" 
+  [file]
+  (-> (format "git log -n 1 --pretty=format:'%%an|%%ae|%%ad|%%s|%%H' --date=iso  -- \"%s\"" file)
+      sh-str
+      :out
+      (str/split #"\|")))
+
+;;; IDEA - better name. This doesn't work because macros
+#_ (def or-> some->)
 
 

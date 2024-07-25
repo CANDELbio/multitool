@@ -454,10 +454,14 @@
   [seq]
   (concat seq (repeat nil)))
 
+(defn trueish?
+  [x]
+  (if x true false))
+
 ;;; I thought split-with did this, but no. Surely this in core?
 (defn divide-with
   [p coll]
-  (let [groups (group-by (comp true? p) coll)]
+  (let [groups (group-by (comp trueish? p) coll)]
     [(get groups true) (get groups false)]))
 
 (defn mapf
@@ -651,6 +655,14 @@
         :else (cons (first l1)
                     (cons (first l2)
                           (intercalate (rest l1) (rest l2))))))
+
+(defn join-seq
+  "Like str/join but makes a list, useful for HTML generation"
+  [sep seq]
+  (cond (empty? seq) '()
+        (empty? (rest seq)) seq
+        :else
+        (cons (first seq) (cons sep (join-seq sep (rest seq))))))
 
 (defn sequencify
   "Turn thing into a sequence if it already isn't one"
@@ -1048,6 +1060,31 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
+
+;;; Utilities for transforming maps, intended for use with ->
+
+(defn rename-key
+  [map from to]
+  (-> map
+      (assoc to (from map))
+      (dissoc from)))
+
+;;; TODO maybe take multiple args)
+(defn default
+  [map key val]
+  (assoc map key (or (key map) val)))
+
+;;; update-keys is in clojure.core
+(defn update-some-keys
+  [map f & keys]
+  (reduce (fn [map k] (update map k f))
+          map keys))
+
+(defn keywordize
+  "Convert the values of selected keys to keywords"
+  [map & keys]
+  (apply update-some-keys map keyword keys))
+
 
 ;;; ⩇⩆⩇ Transients ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 

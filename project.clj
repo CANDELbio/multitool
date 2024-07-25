@@ -1,4 +1,4 @@
-(defproject org.candelbio/multitool "0.1.6"
+(defproject org.candelbio/multitool "0.1.7"
   :description "CANDELBio utility library"
   :url "https://github.com/CANDELbio/multitool"
   :license {:name "Apache 2 License"
