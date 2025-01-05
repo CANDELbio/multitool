@@ -110,8 +110,23 @@
 
 ;;; ⩇⩆⩇ Strings ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn into-string
+  "Convert a set or seq of chars into a string. Like (into \"\" <str>) if that worked."
+  [thing]
+  (cond (string? thing) thing
+        (coll? thing) (apply str thing)
+        :else (str thing)))
+
+;;; Could be more performant
+(defn string-includes-uncased?
+  "Case insensitive version of str/includes?" 
+  [s substr]
+  (str/includes? (str/lower-case s) (str/lower-case substr)))
+
+;;; with ellipses
+;;; 0.18 changed argument order
 (defn truncate-string
-  [n s]
+  [s n]
   (if (> (count s) n)
     (str (subs s 0 n) "…")
     s))
@@ -188,6 +203,10 @@
   "Removes every character of a given set from a string"
   [removed s]
   (reduce str (remove #((set removed) %) s)))
+
+(defn contains-chars?
+  [bads s]
+  (some (set bads) s))
 
 ;;; see str/trim, str/triml, str/trimr,
 ;;; but these let you specify the character set to trim
@@ -416,10 +435,24 @@
 
 ;;; ⩇⩆⩇ Variations on standard predicates ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+(defn negate
+  [f]
+  (comp not f))
+
 (defn nullish? 
   "True if value is something we probably don't care about (nil, false, empty seqs, empty strings)"
   [v]
   (or (false? v) (nil? v) (and (seqable? v) (empty? v))))
+
+;;; aka unnullish? 
+(defn present?
+  [v]
+  (negate nullish?))
+
+(defn nullify
+  "Convert nullish values to nil"
+  [v]
+  (if (nullish? v) nil v))
 
 (defn truthy?
   "Return false if x is nil or false, true otherwise"
@@ -430,6 +463,8 @@
   "Given a 1-arg pred, return a new fn that acts as identity if pred is true, nil otherwise"
   [pred]
   (fn [thing] (if (pred thing) thing nil)))
+
+
 
 (defn- generalize-comparator
   [comp]
@@ -552,12 +587,12 @@
   (first (positions pred coll)))
 
 (defn positions=
-  "Return list of indexes of coll that contain elt"
+  "Return list of indexes of coll that equals elt"
   [elt coll & [key-fn]]
   (positions #(= ((or key-fn identity) %) elt) coll))
 
 (defn position=
-  "Returns the first index of coll that contains elt"
+  "Returns the first index of coll that equals elt"
   [elt coll & [key-fn]]
   (first (positions= elt coll (or key-fn identity))))
 
@@ -604,6 +639,10 @@
   [pred seq]
   (some #(and (pred %) %) seq))
 
+(defn select-by
+  [seq prop val]
+  (some-thing #(= (prop %) val) seq))
+
 ;;; TODO better name for this! Now that it has a much cleaner implementation.
 (defn repeat-until
   "Iterate f on start until a value is produced that passes pred, returns value."
@@ -616,6 +655,12 @@
   (and (< n (count col))
        (>= n 0)
        (nth col n)))
+
+(defn every-nth
+  [n coll]
+  (keep-indexed (fn [i x]
+                  (when (zero? (mod (inc i) n)) x))
+                coll))
 
 (defn distinctly
   "Like distinct, but equality determined by keyfn"
@@ -914,6 +959,11 @@
   [f coll]  
   (zipmap (map f coll) coll))
 
+(defn unmap
+;;; m is a map whose values are maps, key-key is how to include the key in the vals
+  [m key-key]
+  (map (fn [[k v]] (assoc v key-key k)) m))
+
 (defn distinct*?
   "Given a seq, return true if all elements are distinct. See distinct?"
   [seq]
@@ -985,6 +1035,14 @@
   [f hashmap]
   (apply dissoc hashmap (map first (filter f hashmap))))
 
+(defn group-by-dups
+  "Like group-by but return only groups with >1 member"
+  [f seq]
+  (->> (group-by f seq)
+       (dissoc-if (fn [[_ v]] (= (count v) 1)))
+       (into {})))
+
+;;; DEPRECATED, use dissoc-walk which is more general
 (defn dissoc-in
   "Dissoc in a nested map structure"
   [map [k & k-rest]]
@@ -1067,6 +1125,15 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                [(f (get m k2)) k2])))
    m))
 
+;;; TODO analog divide-map-by-keys?
+(defn divide-map-by-value
+  "split map by whether (f v) is true or false"
+  [f map]
+  (reduce (fn [acc [k v]]
+            (update acc (if (f v) 0 1) assoc k v))
+          [{} {}]
+          map))
+
 (defn freq-map [seq]
   (sort-map-by-values (frequencies seq)))
 
@@ -1089,10 +1156,16 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   (reduce (fn [map k] (update map k f))
           map keys))
 
+;;; Deprecated
 (defn keywordize
   "Convert the values of selected keys to keywords"
   [map & keys]
   (apply update-some-keys map keyword keys))
+
+;;; New
+(defn keywordize-keys
+  [map]
+  (map-keys keyword map))
 
 
 ;;; ⩇⩆⩇ Transients ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
@@ -1242,6 +1315,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   ([struct pred] 
    (walk/postwalk #(if (map? %) (clean-map % pred) %) struct)))
 
+;;; See dissoc-in
 (defn dissoc-walk
   [struct & keys]
   (walk/postwalk #(if (map? %)
@@ -1333,6 +1407,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 ;;; (defaulted f x) returns a new fn that will substitute x for nil args (f is called on x)
 (def defaulted fnil)
 
+;;; These might actually want to be macros
+
 (defn safely
   "Given f, produce new function that permits nulling."
   [f]
@@ -1341,7 +1417,14 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 (defn saferly
   "Given f, produce new function that will return nils if exception is thrown. Not recommended for production code"
   [f]
-  (fn [x] (ignore-errors (f x))))
+  (fn [& x] (ignore-errors (apply f x))))
+
+;;; TODO New, needs a better name
+(defn safestly
+  "Given f, produce new function that will return original if exception is thrown. Not recommended for production code"
+  [f]
+  (fn [x] (or (ignore-errors (f x)) x)))
+
 
 (defn transitive-closure 
   "f is a fn of one arg that returns a list. Returns a new fn that computes the transitive closure of f."
@@ -1394,6 +1477,10 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
     (mapcat (fn [elt] (get-in* elt (rest keyseq))) 
             (get* thing (first keyseq)))))
 
+(defn transpose
+  [matrix]
+  (apply map list matrix))
+
 
 ;;; ⩇⩆⩇ Randomness, basic numerics ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -1424,6 +1511,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   [n seq]
   (repeatedly n #(random-element seq)))
 
+;;; because (Math/round <int>) doesn't work, which seems like a bug to me
 (defn round
   "Round the argument"
   [n]

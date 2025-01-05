@@ -330,8 +330,22 @@
    (map (partial str/join separator) rows)))
 
 (defn write-tsv-maps
-  [f rows & [separator]]
-  (let [cols (keys (first rows))]
+  [f rows & [separator]]                ;TODO default separator
+  (let [cols (keys (first rows))]       ;TODO do a union and/or have a parameter
+  (file-lines-out
+   f
+   (map (partial str/join separator)
+        (cons (map name cols)
+              (map (fn [row] (map (fn [col] (get row col)) cols))
+                   rows))))))
+
+(defn dataset-fields
+  [ds]
+  (apply clojure.set/union (map #(set (keys %)) ds))  )
+
+(defn write-tsv-maps
+  [f rows & {:keys [separator cols] :or {separator \tab}}]                ;TODO default separator
+  (let [cols (or cols (dataset-fields rows))]
   (file-lines-out
    f
    (map (partial str/join separator)
