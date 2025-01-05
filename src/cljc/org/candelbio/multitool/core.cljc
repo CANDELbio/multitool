@@ -280,16 +280,17 @@
             (str/replace s match repl))
           string map))
 
-(def param-regex #"\{([\w\-_]*?)\}")          ;extract the template fields from the entity
-(def double-braces #"\{\{([\w\-_]*?)\}\}")
-(def javascript-templating #"\$\{([\w\-_]*?)\}")
+(def param-regex-double-braces #"\{\{([\w\-_]*?)\}\}")
+(def param-regex-javascript #"\$\{([\w\-_]*?)\}")
+(def default-param-regex param-regex-double-braces)
 
-;;; Note: default is single braces for parameters {foo}, but :param-regex double-braces option {{foo}} is probably better, works in more contexts.
-;;; :param-regex javascript-templating for compatibility with javascript templating ${foo}
+;;; :param-regex param-regex-javascript-templating for compatibility with javascript templating ${foo}
 ;;; Variables can contain word characters, - or_
+;;; Defaults to double brace syntax and keyword parameters.
+;;; Defaults changed in 0.1.8 (1/2025)
 (defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
-  [template bindings & {:keys [param-regex key-fn] :or {param-regex param-regex key-fn identity}}]
+  [template bindings & {:keys [param-regex key-fn] :or {param-regex default-param-regex key-fn keyword}}]
   (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
                             [match (or (bindings (key-fn key)) "")])))]
@@ -301,12 +302,20 @@
 
 (defn validate-template
   "Validate a template, defined as in expand-template-string; fields is a set of allowed field names"
-  [template fields & {:keys [param-regex] :or {param-regex param-regex}}]
+  [template fields & {:keys [param-regex] :or {param-regex default-param-regex}}]
   (let [vars (map second (re-seq param-regex template))]
     (assert (not (empty? vars)) "Template has no {fields}")
     (doseq [var vars]
       (assert (contains? fields var)
               (str "Template var " var " is not defined")))))
+
+(defn expand-template-recur
+  "Like expand-template but will recurse, so the template replacements can contain parameters"
+  [tmplate & args]
+  (let [res (apply expand-template tmplate args)]
+    (if (= res tmplate)
+      res
+      (apply expand-template-recur res args))))
 
 ;;; Stolen from clj-glob, where it is internal 
 (defn glob->regex

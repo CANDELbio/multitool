@@ -6,9 +6,9 @@
             [org.candelbio.multitool.math :as math]))
 
 (deftest truncate-string-test
-  (is (= "foo" (truncate-string 3 "foo")))
-  (is (= "fo…" (truncate-string 2 "foo")))
-  (is (= "fo" (truncate-string 3 "fo"))))
+  (is (= "foo" (truncate-string "foo" 3)))
+  (is (= "fo…" (truncate-string "foo" 2)))
+  (is (= "fo" (truncate-string "fo" 3))))
 
 (deftest memoize-named-test
   (let [counter (atom 0)
@@ -176,38 +176,65 @@
 ;;; TODO would make sense to have a re-seq variant that could return groups
 
 (deftest expand-template-test
-  (let [template "The {foo} must have {bar}!"
-        bindings1 {"foo" "subgenius" "bar" "slack"}
-        bindings2 {"foo" "dog"}]
-    (is (= "The subgenius must have slack!"
-           (expand-template template bindings1)))
-    (is (= "The dog must have !"
-           (expand-template template bindings2))))
-  (testing "Double braces"
+  
+  (testing "Double braces (default)"
     (let [template "The {{foo}} must have {{bar}}!"
-          bindings1 {"foo" "subgenius" "bar" "slack"}
-          bindings2 {"foo" "dog"}]
+          bindings1 {:foo "subgenius" :bar "slack"}
+          bindings2 {:foo "dog"}]
       (is (= "The subgenius must have slack!"
-             (expand-template template bindings1 :param-regex double-braces)))
+             (expand-template template bindings1)))
       (is (= "The dog must have !"
-             (expand-template template bindings2 :param-regex double-braces))))
+             (expand-template template bindings2))))
     )
   (testing "Javascript templating, keywords"
     (let [template "The ${foo} must have ${bar}!"
           bindings1 {:foo "subgenius" :bar "slack"}]
       (is (= "The subgenius must have slack!"
-             (expand-template template bindings1 :param-regex javascript-templating :key-fn keyword)))
+             (expand-template template bindings1 :param-regex param-regex-javascript)))
       ))
   (testing "fix bad parse"
     (is (= "{'foo': foo}"
-           (expand-template "{'{a}': {a}}" {:a "foo"} :key-fn keyword))))
+           (expand-template "{'{{a}}': {{a}}}" {:a "foo"}))))
   (testing "hyphens in var names"
       (is (= "{'foo': foo}"
-             (expand-template "{'{a-ha}': {a-ha}}" {:a-ha "foo"} :key-fn keyword))))
+             (expand-template "{'{{a-ha}}': {{a-ha}}}" {:a-ha "foo"}))))
   (testing "underscores in var names"
     (is (= "{'foo': foo}"
-           (expand-template "{'{a_ha}': {a_ha}}" {:a_ha "foo"} :key-fn keyword))))
+           (expand-template "{'{{a_ha}}': {{a_ha}}}" {:a_ha "foo"}))))
+ ;; TODO test :keyword=fn arg
   )
+
+(deftest expand-template-recur-test
+  (testing "simple"
+    (is (= "This is quite serious about vampires"
+           (expand-template-recur
+            "This is {{silly}}"
+            {:silly "quite serious about {{subject}}"
+             :subject "vampires"}))))
+  ;; this might be an ugly and overcomplicated way to do something simple
+  (testing "realistic"
+    (let [template
+          "MATCH(e:PressRelease {}) MATCH (c:Company {{ticker-clause}})-[r]-(e)
+WHERE {{time-filter-clause}}
+{{limit-clause}}"
+          expand (fn [{:keys [ticker limit start-date end-date] :as params}]
+                   (expand-template-recur
+                    template
+                    (merge
+                     {:ticker-clause (if ticker "{ticker: '{{ticker}}'}" "{}")
+                      :time-filter-clause 
+                      (str/join " AND " (mapf identity (list (when end-date "e.date < '{{end-date}}'")
+                                                             (when start-date  "e.date > '{{start-date}}'")
+                                                              "TRUE")))
+                      :limit-clause (if limit "LIMIT {{limit}}" "")
+                      }
+                     params)))]
+      (is (= "MATCH(e:PressRelease {}) MATCH (c:Company {ticker: 'RYTM'})-[r]-(e)\nWHERE TRUE\n"
+             (expand {:ticker "RYTM"})))
+      (is (= "MATCH(e:PressRelease {}) MATCH (c:Company {})-[r]-(e)\nWHERE e.date > '2024-02-02' AND TRUE\n"
+             (expand {:start-date "2024-02-02"})))
+      )))
+
 
 (deftest pattern-match-test
   (testing "basics"
