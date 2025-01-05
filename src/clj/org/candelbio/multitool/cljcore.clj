@@ -449,6 +449,10 @@
       (recur)))
   nil)
 
+(defn sleep
+  [n]
+  (Thread/sleep n))
+
 ;;; ⩇⩆⩇ Reflection ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; See clojure.reflect/reflect which does most of what I want
