@@ -73,7 +73,8 @@
             ret))))
 
 ;;; TODO better name
-(defn java-resource->string [resource]
+(defn java-resource->string
+  [resource]
   (-> resource
       io/resource
       io/input-stream
@@ -260,7 +261,7 @@
 
 ;;; ⩇⩆⩇ Date/time ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
-;;; For more serious use, see clj-time https://github.com/clj-time/clj-time
+;;; For more serious use, see [clojure.java-time "1.4.2"] and some Exobrain extensions
 
 (defn now []
   (Date.))
@@ -314,6 +315,7 @@
   (map #(str/split % separator)
        (file-lines f)))
 
+;;; TODO option to keywordize
 (defn read-tsv-maps
   "Given a tsv file with a header line, returns seq where each elt is a map of field names to strings"
   [f & [separator]]

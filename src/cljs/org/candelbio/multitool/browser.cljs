@@ -1,12 +1,23 @@
 (ns org.candelbio.multitool.browser
-  (:require [org.candelbio.multitool.cljscore :as core]))
+  (:require [org.candelbio.multitool.cljscore :as core]
+            [clojure.string :as str]))
 
 ;;; ⩇⩆⩇ Browser-specific ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn browser-url
-  ":Get URL of current page"            
+  "Get URL of current page"            
   []
   (-> js/window .-location .-href))
+
+(defn browser-pathname               
+  "Get the pathname (URL after host)"
+  []
+  (-> js/window .-location .-pathname))
+
+(defn browser-path
+  "Get the pathname as a sequence of components"
+  []
+  (str/split (subs (browser-pathname) 1) "/"))
 
 (defn url-params
   "Get the url params from the browser window as a map"
