@@ -1090,6 +1090,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                  (clean-map map pred))
                 map)))
 
+(defn delete-keys
+  [map key-seq]
+  "Returns a map containing only those entries in map whose key is NOT in keys. Inverse of select-keys"
+  (let [keyset (set key-seq)]
+    (select-keys map (for [[k v] map :when (not (keyset k))] k))
+    ))
+
 ;;; See also clojure.data/diff
 ;;; The result of this is way too verbose
 ;;; TODO generalize to >2 args
