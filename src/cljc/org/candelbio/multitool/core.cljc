@@ -314,7 +314,7 @@
                      (map (fn [[match key]]
                             [match (or (bindings (key-fn key)) "")])))]
     (reduce (fn [s [match key]]
-              (str/replace s (re-pattern-literal match) (str key)))
+              (str/replace s match (str key)))
             template matches)))
 
 (def expand-template-string expand-template) ;support old name

@@ -305,6 +305,11 @@
   [s]
   (shell/sh "/bin/bash" "-c" s))
 
+(defn sh-template
+  "Version of sh uses templating"
+  [template params]
+  (sh-str (u/expand-template template params)))
+
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 ;;; Very simple tab file i/o. Not sophisticated and won't handle some cases, use clojure.data.csv for real work
