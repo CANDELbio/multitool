@@ -308,7 +308,7 @@
 (defn sh-template
   "Version of sh uses templating"
   [template params]
-  (sh-str (u/expand-template template params)))
+  (sh-str (core/expand-template template params)))
 
 ;;; ⩇⩆⩇ Higher file fns ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
