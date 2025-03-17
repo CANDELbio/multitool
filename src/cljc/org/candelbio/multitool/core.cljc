@@ -299,20 +299,29 @@
             (str/replace s match repl))
           string map))
 
-(def param-regex-double-braces #"\{\{([\w\-_]*?)\}\}")
-(def param-regex-javascript #"\$\{([\w\-_]*?)\}")
+(def param-regex-double-braces #"\{\{([\w\-_\.]*?)\}\}")
+(def param-regex-javascript #"\$\{([\w\-_\.]*?)\}")
 (def default-param-regex param-regex-double-braces)
 
+(defn treeword
+  "Like keyword but supports foo.bar syntax, will generate the appropriate accessor"
+  [s]
+  (let [s (name s)]
+    (if (.contains s ".")
+      (let [access (mapv keyword (str/split s #"\."))]
+        #(get-in % access))
+      (keyword s))))
+
 ;;; :param-regex param-regex-javascript-templating for compatibility with javascript templating ${foo}
-;;; Variables can contain word characters, - or_
+;;; Variables can contain word characters, - or_. A . indicates subfields.
 ;;; Defaults to double brace syntax and keyword parameters.
 ;;; Defaults changed in 0.1.8 (1/2025)
 (defn expand-template
   "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
-  [template bindings & {:keys [param-regex key-fn] :or {param-regex default-param-regex key-fn keyword}}]
+  [template bindings & {:keys [param-regex key-fn] :or {param-regex default-param-regex key-fn treeword}}]
   (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
-                            [match (or (bindings (key-fn key)) "")])))]
+                            [match (or ((key-fn key) bindings) "")])))]
     (reduce (fn [s [match key]]
               (str/replace s match (str key)))
             template matches)))

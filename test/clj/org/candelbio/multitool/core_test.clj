@@ -196,12 +196,16 @@
     (is (= "{'foo': foo}"
            (expand-template "{'{{a}}': {{a}}}" {:a "foo"}))))
   (testing "hyphens in var names"
-      (is (= "{'foo': foo}"
-             (expand-template "{'{{a-ha}}': {{a-ha}}}" {:a-ha "foo"}))))
+    (is (= "{'foo': foo}"
+           (expand-template "{'{{a-ha}}': {{a-ha}}}" {:a-ha "foo"}))))
   (testing "underscores in var names"
     (is (= "{'foo': foo}"
            (expand-template "{'{{a_ha}}': {{a_ha}}}" {:a_ha "foo"}))))
- ;; TODO test :keyword=fn arg
+  (testing "dots in var names"
+    (is (= "This is useful is it not"
+           (expand-template "This is {{quite.wack}} is it not"
+                            {:quite {:wack "useful"}}))))
+  ;; TODO test :keyword=fn arg
   )
 
 (deftest expand-template-recur-test
