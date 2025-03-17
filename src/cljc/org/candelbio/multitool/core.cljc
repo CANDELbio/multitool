@@ -307,7 +307,7 @@
   "Like keyword but supports foo.bar syntax, will generate the appropriate accessor"
   [s]
   (let [s (name s)]
-    (if (.contains s ".")
+    (if (str/includes? s ".")
       (let [access (mapv keyword (str/split s #"\."))]
         #(get-in % access))
       (keyword s))))
@@ -709,6 +709,7 @@
                         (step (rest xs) (conj seen (key-fn (first xs)))))))]
     (step seq (set existing))))
 
+;;; TODO medley/interleave-all is more general
 ;;; TODO recursive so risk of stack blowout
 (defn intercalate
   "Given 2 seqs, produce a seq with alternating elements."
@@ -1099,9 +1100,10 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                  (clean-map map pred))
                 map)))
 
+;;; TODO delete by predicate (medley/remove-keys)
 (defn delete-keys
   [map key-seq]
-  "Returns a map containing only those entries in map whose key is NOT in keys. Inverse of select-keys"
+  "Returns a map containing only those entries in map whose key is NOT in key-seq. Inverse of select-keys"
   (let [keyset (set key-seq)]
     (select-keys map (for [[k v] map :when (not (keyset k))] k))
     ))
@@ -1204,9 +1206,17 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
       (exec collect)
       @acc)))
 
-(def collecting
+(defn collecting
   "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collection is returned. See tests for example"
-  (make-collecter [] conj))
+  [exec]
+  (-> ((make-collecter (transient []) conj!) exec)
+      persistent!))
+
+(defn collecting-set
+  "Exec is a fn of one argument, which is called and passed another fn it can use to collect values; the collected set returned. See tests for example"
+  [exec]
+  (-> ((make-collecter (transient #{}) conj!) exec)
+      persistent!))
 
 (def collecting-merge
   "Exec is a fn of one argument, which is called and passed another fn it can use to collect values which are merged with merge-recursive; the result is returned. See tests for example TODO" 
@@ -1299,16 +1309,25 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
      form)
     @acc))
 
-(defn walk-collect
-  "Walk f over thing and return a list of the non-nil returned values"
-  [f thing]
+(defn- walk-collect-1
+  [f thing start]
   (persistent!
    (walk-reduce (fn [acc elt]
                   (if-let [it (f elt)]
                     (conj! acc it)
                     acc))
                 thing
-                (transient []))))
+                (transient start))))
+
+(defn walk-collect
+  "Walk f over thing and return a vector of the non-nil returned values"
+  [f thing]
+  (walk-collect-1 f thing []))
+
+(defn walk-collect-set
+  "Walk f over thing and return a set of the non-nil returned values"
+  [f thing]
+  (walk-collect-1 f thing #{}))
 
 (defn walk-find
   "Walk over thing and return the first val for which f is non-nil"

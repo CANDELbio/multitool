@@ -173,6 +173,21 @@
   (is (= []
          (re-seq-positions #"\((-*)\)" "nada"))))
 
+(deftest treeword-test
+  (is (= "yo"
+         ((treeword "foo.bar")
+          {:foo {:bar "yo"}})))
+  (testing "is just keyword if no ."
+    (is (= "yo"
+           ((treeword "foo")
+            {:foo "yo"}))))
+  (testing "keyword input"
+   (is (= :foo (treeword :foo))))
+  (testing "dotted keyword input"
+    (is (= "yo"
+           ((treeword :foo.bar)
+            {:foo {:bar "yo"}})))))
+
 ;;; TODO would make sense to have a re-seq variant that could return groups
 
 (deftest expand-template-test
@@ -376,6 +391,14 @@ WHERE {{time-filter-clause}}
               (when (re-find #"pa" word)
                 (collect word))))))))
 
+(deftest collecting-set-test
+  (is (= #{"pale" "sparsely" "panicgrass"}
+         (collecting-set
+          (fn [collect]
+            (doseq [word (nlp/tokens text1)]
+              (when (re-find #"pa" word)
+                (collect word))))))))
+
 (deftest collecting-merge-test
   (let [silly
         (collecting-merge
@@ -400,6 +423,10 @@ WHERE {{time-filter-clause}}
 (deftest walk-collect-test
   (is (= [1 2 3]
          (walk-collect (or-nil number?) {:a 1 :b [2 3]}))))
+
+(deftest walk-collect-set-test
+  (is (= #{1 2 3}
+         (walk-collect-set (or-nil number?) {:a 1 :b [2 3]}))))
 
 (deftest walk-find-test
   (is (= 2

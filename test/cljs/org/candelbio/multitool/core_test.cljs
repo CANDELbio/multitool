@@ -9,6 +9,12 @@
             )
   )
 
+(deftest truncate-string-test
+  (is (= "foo" (sut/truncate-string "foo" 3)))
+  (is (= "fo…" (sut/truncate-string "foo" 2)))
+  (is (= "fo" (sut/truncate-string "fo" 3))))
+
+
 (deftest memoize-named-test
   (let [counter (atom 0)
         next #(swap! counter inc)
@@ -35,6 +41,22 @@
     (= (map f (range 100))
        (sut/map-chunked #(map f %) 7 (range 100)))))
       
+(deftest following-elt-test
+  (is (= 3 (sut/following-elt 2 [1 2 3 4])))
+  (is (nil? (sut/following-elt 20 [1 2 3 4])))
+  (is (nil? (sut/following-elt 4 [1 2 3 4])))
+  (is (nil? (sut/following-elt 1 [])))
+  (testing "stack safety"
+    (is (= 90001 (sut/following-elt 90000 (range 100000))))))
+
+(deftest preceding-elt-test
+  (is (= 3 (sut/preceding-elt 4 [1 2 3 4])))
+  (is (nil? (sut/preceding-elt 20 [1 2 3 4])))
+  (is (nil? (sut/preceding-elt 1 [1 2 3 4])))
+  (is (nil? (sut/preceding-elt 1 [])))
+  (testing "stack safety"
+    (is (= 89999 (sut/preceding-elt 90000 (range 100000))))))
+
 (deftest some-thing-test
   (is (= 2 (sut/some-thing even? '(1 2 3 4)))))
 
@@ -111,6 +133,10 @@
            #{:terns :cats :birds :elephants :plants :warblers :owls
              :trees :animals :organisms :mammals :cacti}))))
 
+(deftest divide-with-test
+  (= [[0 2 4 6 8] [1 3 5 7 9]]
+     (sut/divide-with even? (range 10))))
+
 (deftest compare-tests
   (is (sut/>* 2 1))
   (is (sut/>* "foo" "bar"))
@@ -155,33 +181,86 @@
   (is (= []
          (sut/re-seq-positions #"\((-*)\)" "nada"))))
 
+(deftest treeword-test
+  (is (= "yo"
+         ((sut/treeword "foo.bar")
+          {:foo {:bar "yo"}})))
+  (testing "is just keyword if no ."
+    (is (= "yo"
+           ((sut/treeword "foo")
+            {:foo "yo"}))))
+  (testing "keyword input"
+   (is (= :foo (sut/treeword :foo))))
+  (testing "dotted keyword input"
+    (is (= "yo"
+           ((sut/treeword :foo.bar)
+            {:foo {:bar "yo"}})))))
+
 ;;; TODO would make sense to have a re-seq variant that could return groups
 
 (deftest expand-template-test
-  (let [template "The {foo} must have {bar}!"
-        bindings1 {"foo" "subgenius" "bar" "slack"}
-        bindings2 {"foo" "dog"}]
-    (is (= "The subgenius must have slack!"
-           (sut/expand-template template bindings1)))
-    (is (= "The dog must have !"
-           (sut/expand-template template bindings2))))
-  (testing "Double braces"
+  
+  (testing "Double braces (default)"
     (let [template "The {{foo}} must have {{bar}}!"
-          bindings1 {"foo" "subgenius" "bar" "slack"}
-          bindings2 {"foo" "dog"}]
+          bindings1 {:foo "subgenius" :bar "slack"}
+          bindings2 {:foo "dog"}]
       (is (= "The subgenius must have slack!"
-             (sut/expand-template template bindings1 :param-regex sut/double-braces)))
+             (sut/expand-template template bindings1)))
       (is (= "The dog must have !"
-             (sut/expand-template template bindings2 :param-regex sut/double-braces))))
+             (sut/expand-template template bindings2))))
     )
   (testing "Javascript templating, keywords"
     (let [template "The ${foo} must have ${bar}!"
           bindings1 {:foo "subgenius" :bar "slack"}]
-      ;; TODO failing for unknown reason. Works in REPL
       (is (= "The subgenius must have slack!"
-             (sut/expand-template template bindings1 :param-regex sut/javascript-templating :key-fn keyword)))
+             (sut/expand-template template bindings1 :param-regex sut/param-regex-javascript)))
       ))
+  (testing "fix bad parse"
+    (is (= "{'foo': foo}"
+           (sut/expand-template "{'{{a}}': {{a}}}" {:a "foo"}))))
+  (testing "hyphens in var names"
+    (is (= "{'foo': foo}"
+           (sut/expand-template "{'{{a-ha}}': {{a-ha}}}" {:a-ha "foo"}))))
+  (testing "underscores in var names"
+    (is (= "{'foo': foo}"
+           (sut/expand-template "{'{{a_ha}}': {{a_ha}}}" {:a_ha "foo"}))))
+  (testing "dots in var names"
+    (is (= "This is useful is it not"
+           (sut/expand-template "This is {{quite.wack}} is it not"
+                            {:quite {:wack "useful"}}))))
+  ;; TODO test :keyword=fn arg
   )
+
+(deftest expand-template-recur-test
+  (testing "simple"
+    (is (= "This is quite serious about vampires"
+           (sut/expand-template-recur
+            "This is {{silly}}"
+            {:silly "quite serious about {{subject}}"
+             :subject "vampires"}))))
+  ;; this might be an ugly and overcomplicated way to do something simple
+  (testing "realistic"
+    (let [template
+          "MATCH(e:PressRelease {}) MATCH (c:Company {{ticker-clause}})-[r]-(e)
+WHERE {{time-filter-clause}}
+{{limit-clause}}"
+          expand (fn [{:keys [ticker limit start-date end-date] :as params}]
+                   (sut/expand-template-recur
+                    template
+                    (merge
+                     {:ticker-clause (if ticker "{ticker: '{{ticker}}'}" "{}")
+                      :time-filter-clause 
+                      (str/join " AND " (sut/mapf identity (list (when end-date "e.date < '{{end-date}}'")
+                                                             (when start-date  "e.date > '{{start-date}}'")
+                                                              "TRUE")))
+                      :limit-clause (if limit "LIMIT {{limit}}" "")
+                      }
+                     params)))]
+      (is (= "MATCH(e:PressRelease {}) MATCH (c:Company {ticker: 'RYTM'})-[r]-(e)\nWHERE TRUE\n"
+             (expand {:ticker "RYTM"})))
+      (is (= "MATCH(e:PressRelease {}) MATCH (c:Company {})-[r]-(e)\nWHERE e.date > '2024-02-02' AND TRUE\n"
+             (expand {:start-date "2024-02-02"})))
+      )))
 
 #_
 (deftest pattern-match-test
@@ -205,6 +284,13 @@
   (is (= '("a1" "a2-1") (sut/uncollide '("a1" "a2") :existing '("a2") :new-key-fn #(str % "-1"))))
   (is (= '("a-1-1" "b") (sut/uncollide '("a" "b") :existing '("a" "a-1") :new-key-fn #(str % "-1"))))
   )
+
+(deftest intercalate-test
+  (is (= '(a 1 b 2 c 3) (sut/intercalate '(a b c) '(1 2 3))))
+  (is (= '(a 1 b c) (sut/intercalate '(a b c) '(1))))
+  (is (= '(a 1 2 3) (sut/intercalate '(a) '(1 2 3))))
+  (is (= '(1 2 3) (sut/intercalate nil '(1 2 3))))
+  (is (= '(a b c) (sut/intercalate '(a b c) nil))))
 
 ;;; Note: (/ 0 0) does not throw an error in js! So these have diverged from clj version
 
@@ -253,6 +339,11 @@
   ;; Italicize all words that contain "oo"
   (is (= '("I like " [:i "food"] " and " [:i "goofing"] " on " [:i "woo"] ".")
          (re-substitute #"\w*oo\w*" "I like food and goofing on woo." (fn [ss] [:i ss])))))
+
+(deftest dehumanize-test
+  (let [m {"This" 1 "Uses strings" 2 "As keys" {"which is" "weird"}}]
+    (is (= {:this 1, :uses_strings 2, :as_keys {:which_is "weird"}}
+           (sut/dehumanize m)))))
 
 (deftest index-by-test
   (is (= '{a [a 1], b [b 2], c [c 3]}
@@ -314,17 +405,35 @@
               (when (re-find #"pa" word)
                 (collect word))))))))
 
-(deftest collecting-merge-test
-  (let [silly
-        (sut/collecting-merge
-         (fn [collect]
-           (doseq [word (nlp/tokens text1)]
-             (collect {(first word) [word]}))))]
-    (is (= (get silly \h) '("hollow" "horses'" "hooves" "heard" "heard")))))
+(deftest collecting-set-test
+  (is (= #{"pale" "sparsely" "panicgrass"}
+         (sut/collecting-set
+          (fn [collect]
+            (doseq [word (nlp/tokens text1)]
+              (when (re-find #"pa" word)
+                (collect word))))))))
+
+(deftest walk-map-entries-test
+  (is (= {:a [1 1], :b [2 2], :c [{:d [3 3], :e [4 4]} {:d [3 3], :e [4 4]}]}
+         (sut/walk-map-entries (fn [[k v]] [k [v v]])
+                           {:a 1 :b 2 :c {:d 3 :e 4 }}))))
+
+(deftest walk-keys-test
+  (is (= {:a 2, :b 2, :c {:d 6, :e 4}}
+         (sut/walk-keys (fn [[k v]]  [k (* 2 v)]) #{:a :d}
+                    {:a 1 :b 2 :c {:d 3 :e 4}})))
+  (is (= {:a 1, :b 2, :c {:d 6, :e 4}}
+         (sut/walk-keys (fn [[k v]]  [k (* 2 v)]) :d
+                    {:a 1 :b 2 :c {:d 3 :e 4}}))))
+
 
 (deftest walk-collect-test
   (is (= [1 2 3]
          (sut/walk-collect (sut/or-nil number?) {:a 1 :b [2 3]}))))
+
+(deftest walk-collect-set-test
+  (is (= #{1 2 3}
+         (sut/walk-collect-set (sut/or-nil number?) {:a 1 :b [2 3]}))))
 
 (deftest walk-find-test
   (is (= 2
