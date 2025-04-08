@@ -316,8 +316,9 @@
 ;;; Variables can contain word characters, - or_. A . indicates subfields.
 ;;; Defaults to double brace syntax and keyword parameters.
 ;;; Defaults changed in 0.1.8 (1/2025)
+;;; TODO should error if a param is undefined (maybe under an option)
 (defn expand-template
-  "Template is a string containing {foo} elements, which get replaced by corresponding values from bindings. See tests for examples."
+  "Template is a string containing {{foo}} elements, which get replaced by corresponding values from bindings. See tests for examples.  {{foo.bar}} works for nested maps"
   [template bindings & {:keys [param-regex key-fn] :or {param-regex default-param-regex key-fn treeword}}]
   (let [matches (->> (re-seq param-regex template) 
                      (map (fn [[match key]]
@@ -620,15 +621,28 @@
     [(get grouped true) (get grouped false)]))
 
 ;;; Formerly threadable
+#_    ; deprecated,
 (defn swapped
   "Return a fn like f but with first two arguments swapped"
   [f]
   (fn [a b & rest]
     (apply f b a rest)))
 
+;;;; deprecated
+#_
 (def ^{:doc "Map backwards. Like map, but takes its args in inverse order. useful in conjunction with ->"}
   pam
   (swapped map))
+
+(defn lsbf
+  "The last (arg) shall be first (for use in ->> chains)"
+  [f & args]
+  (apply f (last args) (drop-last args)))
+
+(defn fsbl
+  "The first (arg) shall be last (for use in -> chains)"
+  [o f & args]
+  (apply f (conj (vec args) o)))
 
 (defn clean-seq
   "Remove all nullish values from a seq"
@@ -1545,6 +1559,12 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Return n random elements from a seq"
   [n seq]
   (repeatedly n #(random-element seq)))
+
+;;; Is this generally useful?
+(defn samples-by
+  [f map n]
+  (->> (group-by f map)
+       (map-values #(random-elements n %))))
 
 ;;; because (Math/round <int>) doesn't work, which seems like a bug to me
 (defn round

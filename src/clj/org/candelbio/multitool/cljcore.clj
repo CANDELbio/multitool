@@ -301,9 +301,9 @@
     out))
 
 (defn sh-str
-  "Version of sh that takes a single string, which can include pipe operators etc"
+  "Version of sh that takes a single string, which can include pipe operators etc. Also turns errors into exceptions"
   [s]
-  (shell/sh "/bin/bash" "-c" s))
+  (sh-errchecked "/bin/bash" "-c" s))
 
 (defn sh-template
   "Version of sh uses templating"

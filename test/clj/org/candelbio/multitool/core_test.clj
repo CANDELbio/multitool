@@ -501,9 +501,20 @@ WHERE {{time-filter-clause}}
     (testing "gen d values are unique"
       (is (not (= (nth result 3) (nth result 5)))))))
 
+#_
 (deftest pam-test
   (is (= (map #(* % 2) (range 10))
          (pam (range 10) #(* % 2)))))
+
+(deftest fsbl-test
+  (is (= (map #(* % 2) (range 10))
+         (-> (range 10)
+             (fsbl map #(* % 2))))))
+
+(deftest lsbf-test
+  (is (= 2
+         (->> (range 10)
+              (lsbf nth 2)))))
 
 (deftest clean-seq-test
   (is (= '(3 4 [a] "hey")
