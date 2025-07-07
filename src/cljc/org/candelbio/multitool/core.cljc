@@ -1443,7 +1443,7 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
          (throw (ex-info "value" {:value thing :context (filter keyword? (map first *side-walk-context*))}))))
      thing)
     nil
-    (catch clojure.lang.ExceptionInfo   ;TODO cljcify
+    (catch  #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)    ;TODO cljcify
         e
       [(:value (ex-data e))
        (:context (ex-data e))]
