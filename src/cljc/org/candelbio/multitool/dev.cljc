@@ -30,7 +30,7 @@
   (prn thing)
   thing)
 
-(def captures (atom {}))
+(defonce captures (atom {}))
 
 (defn capture [tag thing]
   (swap! captures assoc tag thing)

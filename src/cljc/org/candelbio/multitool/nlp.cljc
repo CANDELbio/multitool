@@ -54,8 +54,9 @@
       (remove-stops stops)
       remove-numbers))
 
-
-
+(defn join-tokens
+  [tokens]
+  (str/join " " tokens))
 
 ;;; Example of use
 

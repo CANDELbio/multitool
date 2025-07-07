@@ -59,8 +59,9 @@
 (deftest some-thing-test
   (is (= 2 (some-thing even? '(1 2 3 4)))))
 
-(deftest repeat-until-test
-  (is (= 16 (repeat-until #(> % 10) #(* % 2) 1))))
+(deftest iterate-until-test
+  ;; TODO 2 arg
+  (is (= 16 (iterate-until #(> % 10) #(* % 2) 1))))
 
 (deftest remove=-test
   (is (= '(0 1 3 4) (remove= 2 (range 5))))
@@ -4254,3 +4255,21 @@ WHERE {{time-filter-clause}}
     (is (= 2 (or-nullish "" 2)))
     (is (= 2 (or-nullish "" 2 (/ 0 0))))
     ))
+
+(deftest set-toggle-test
+  (is (= #{:foo} (set-toggle #{:foo :bar} :bar)))
+  (is (= #{:foo :bar} (set-toggle #{:foo} :bar)))
+  (is (= #{:bar} (set-toggle nil :bar))))
+
+(def reshape-fat-data
+  [{:id 1 :prop :name :value "Bob" }
+   {:id 1 :prop :slack :value :high }
+   {:id 2 :prop :name :value "Antibob" }
+   {:id 2 :prop :slack :value :low }
+   {:id 2 :prop :pink :value true }])
+
+
+(deftest reshape-fat-test
+  (is (= (set [{:name "Bob", :slack :high, :id 1}
+               {:name "Antibob", :slack :low, :pink true, :id 2}])
+         (set (reshape-fat reshape-fat-data :id :prop :value)))))

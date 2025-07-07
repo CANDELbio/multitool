@@ -85,6 +85,7 @@
   `(try (do ~@body)
         (catch ~(macros/case :clj Throwable :cljs :default) e# nil)))
 
+;;; TODO a version of this that uses logging fn. But that would be an additional dependncy
 (defmacro ignore-report
   "Execute `body`, if an exception occurs, print a message and continue"
   [& body]
@@ -126,6 +127,7 @@
 
 ;;; with ellipses
 ;;; 0.18 changed argument order
+;;; TODO make ellipses optional, try to break on word boundary
 (defn truncate-string
   [s n]
   (if (> (count s) n)
@@ -270,6 +272,11 @@
   "Return a regex that will match the literal string"
   [string]
   (re-pattern (re-quote string)))
+
+(defn re-pattern-literal-nocase
+  "Return a regex that will match the literal string, case insensitive"
+  [string]
+  (re-pattern (str "(?is)" (re-quote string))))
 
 ;;; TODO make a cljs version (or move to cljcore)
 ;;; Based on clojure.core/re-seq
@@ -685,11 +692,13 @@
   [seq prop val]
   (some-thing #(= (prop %) val) seq))
 
-;;; TODO better name for this! Now that it has a much cleaner implementation.
-(defn repeat-until
+;;; Formerly repeat-until
+(defn iterate-until
   "Iterate f on start until a value is produced that passes pred, returns value."
-  [pred f start]
-  (some-thing pred (iterate f start)))
+  ([pred f start]
+   (some-thing pred (iterate f start)))
+  ([f start]
+   (iterate-until (negate nullish?) f start)))
 
 (defn safe-nth
   "Like nth but will return nil if out of bounds rather than erroring"
@@ -734,7 +743,7 @@
   (letfn [(step [xs seen]
             (cond (empty? xs) xs
                   (contains? seen (key-fn (first xs)))
-                  (let [new-elt (repeat-until #(not (contains? seen (key-fn %)))
+                  (let [new-elt (iterate-until #(not (contains? seen (key-fn %)))
                                               new-key-fn (first xs))]
                     (cons new-elt
                           (step (rest xs) (conj seen (key-fn new-elt)))))
@@ -828,6 +837,15 @@
   "Compute the set difference of `list1` - `list2'"
   [list1 list2]
   (seq (set/difference (set list1) (set list2))))
+
+(defn set-toggle
+  "Toggle presence of elt in set (set can be nil)"
+  [aset elt]
+  (if aset
+    (if (aset elt)
+      (disj aset elt)
+      (conj aset elt))
+    (set [elt])))
 
 ;;; partition-lossless
 ;;; Previously called take-groups
@@ -1290,6 +1308,8 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; ⩇⩆⩇ Walkers ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
+;;; This stuff needs cleaning up and would be a good candidate for a separate file
+
 ;;; Some common patterns
 
 (defn walk-filtered
@@ -1329,6 +1349,9 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
   "Walk all the keywords in thing recursively"
   [f thing]
   (walk-map-entries (fn [[k v]] [(f k) v]) thing))
+
+
+
 
 ;;; Previously subst, but that collides with clojure.core
 (defn substitute
@@ -1409,6 +1432,22 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
               :cljs ExceptionInfo)
         e
       (:value (ex-data e)))))
+
+(defn walk-find-path
+  "Walk over thing and return [<the first val for which f is non-nil>, <path>]"
+  [f thing]
+  (try
+    (side-walk
+     (fn [thing]
+       (when (f thing)
+         (throw (ex-info "value" {:value thing :context (filter keyword? (map first *side-walk-context*))}))))
+     thing)
+    nil
+    (catch clojure.lang.ExceptionInfo   ;TODO cljcify
+        e
+      [(:value (ex-data e))
+       (:context (ex-data e))]
+       )))
 
 (defn clean-walk
   "Remove values from all maps in 'struct' based on 'pred' (default is `nullish?`). "
@@ -1703,13 +1742,13 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
 
 ;;; Note: these are for casual use, you probably want tablecloth if doing a lot of data operations
 
-(defn pivot
-  [mapseq row-id-col row-id-field pivot-key-field pivot-value-field]
-  (mapcat (fn [row]
-            (let [row-id (get row row-id-col)]
-              (map (fn [[k v]]
-                     {row-id-field row-id
-                      pivot-key-field k
-                      pivot-value-field v})
-                   row)))
-          mapseq))
+(defn reshape-fat
+  "Reshape a mapseq from skinny to fat"
+  [mapseq id-col prop-col val-col]
+  (map (fn [[id cols]]
+         (assoc (zipmap (map prop-col cols)
+                        (map val-col cols))
+                id-col id))
+       (group-by id-col mapseq)))
+
+;;; TODO reshape-skinny
