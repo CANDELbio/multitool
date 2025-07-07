@@ -1,11 +1,11 @@
-(defproject org.candelbio/multitool "0.1.10"
+(defproject org.candelbio/multitool "0.1.11"
   :description "CANDELBio utility library"
   :url "https://github.com/CANDELbio/multitool"
   :license {:name "Apache 2 License"
             :url "https://opensource.org/licenses/Apache-2.0"}
   :deploy-repositories [["clojars" {:sign-releases false}]]
-  :dependencies [[org.clojure/clojure "1.11.1"]
-                 [org.clojure/clojurescript "1.11.132"]
+  :dependencies [[org.clojure/clojure "1.12.0"]
+                 [org.clojure/clojurescript "1.12.42"]
                  [net.cgrand/macrovich "0.2.1"]] ;Note: 0.2.2 has a fatal typo?
   :source-paths ["src/cljc" "src/clj" "src/cljs"]
   :test-paths ["test/cljc" "test/clj"]

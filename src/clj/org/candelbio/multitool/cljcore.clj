@@ -147,16 +147,22 @@
     (System/setProperty "user.dir" (.getAbsolutePath dir))
     dir))
 
-(defn ^File temp-file []
+;;; TODO these should take an argument for path
+
+(defn ^File temp-file
+  []
   (File/createTempFile "temp" ""))
 
-(defn temp-file-path []
+(defn temp-file-path
+  []
   (.getPath ^File (temp-file)))
 
-(defn temp-dir-path []
+(defn temp-dir-path
+  []
   (str (Files/createTempDirectory "temp" (into-array FileAttribute [] ))))
 
-(defn directory-files [d filterfn]
+(defn directory-files
+  [d filterfn]
   (filter (fn [^File f]
             (and (not (.isDirectory f))
                 (.exists f)

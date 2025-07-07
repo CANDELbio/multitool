@@ -67,6 +67,7 @@
 
 (defmacro def-lazy
   "Like `def` but produces a delay; value is acceessed via @ and won't be computed until needed"
+  {:clj-kondo/lint-as 'clojure.core/def} ;TODO add these elsewhere, if can get it to work https://github.com/clj-kondo/clj-kondo/blob/master/doc/config.md#inline-macro-configuration
   [var & body]
   `(def ~var (delay ~@body)))
 )
@@ -249,6 +250,13 @@
   [list]
   (str/join ", " (clean-seq list)))
 
+;;; TODO test
+(declare nullish?)
+(defn parse-comma-list
+  "Parse a comma-separated string into parts "
+  [s]
+  (map str/trim (remove nullish? (str/split s #"\,"))))
+
 ;;; ⩇⩆⩇ Regex and templating ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
 (defn re-quote
@@ -299,33 +307,44 @@
             (str/replace s match repl))
           string map))
 
+;;; See https://peps.python.org/pep-0750/ for latest Python technolgy
+
 (def param-regex-double-braces #"\{\{([\w\-_\.]*?)\}\}")
 (def param-regex-javascript #"\$\{([\w\-_\.]*?)\}")
 (def default-param-regex param-regex-double-braces)
+
+(defn- treeword-accessor
+  [s]
+  (or (coerce-numeric-hard s)
+      (keyword s)))
 
 (defn treeword
   "Like keyword but supports foo.bar syntax, will generate the appropriate accessor"
   [s]
   (let [s (name s)]
     (if (str/includes? s ".")
-      (let [access (mapv keyword (str/split s #"\."))]
+      (let [access (mapv treeword-accessor (str/split s #"\."))]
         #(get-in % access))
       (keyword s))))
 
+;;; TODO macro version of this than can do the Python thing of embedding code eg "You have {{(count items)}} items". 
 ;;; :param-regex param-regex-javascript-templating for compatibility with javascript templating ${foo}
 ;;; Variables can contain word characters, - or_. A . indicates subfields.
 ;;; Defaults to double brace syntax and keyword parameters.
 ;;; Defaults changed in 0.1.8 (1/2025)
-;;; TODO should error if a param is undefined (maybe under an option)
 (defn expand-template
   "Template is a string containing {{foo}} elements, which get replaced by corresponding values from bindings. See tests for examples.  {{foo.bar}} works for nested maps"
-  [template bindings & {:keys [param-regex key-fn] :or {param-regex default-param-regex key-fn treeword}}]
-  (let [matches (->> (re-seq param-regex template) 
-                     (map (fn [[match key]]
-                            [match (or ((key-fn key) bindings) "")])))]
+  [template bindings & {:keys [param-regex key-fn allow-missing?] :or {param-regex default-param-regex key-fn treeword}}]
+  (let [params (->> (re-seq param-regex template) 
+                    (map (fn [[match key]]
+                           [match (or ((key-fn key) bindings)
+                                      (and allow-missing? "")
+                                      (throw (ex-info "Missing template parameter" {:param key :template template}))
+                                      )])))]
     (reduce (fn [s [match key]]
               (str/replace s match (str key)))
-            template matches)))
+            template
+            params)))
 
 (def expand-template-string expand-template) ;support old name
 
@@ -685,9 +704,10 @@
                   (when (zero? (mod (inc i) n)) x))
                 coll))
 
-(defn distinctly
+;;; Formerly distinctly with a different arg order
+(defn distinct-by
   "Like distinct, but equality determined by keyfn"
-  [coll keyfn]
+  [keyfn coll]
   (let [step (fn step [xs seen]
                (lazy-seq
                 ((fn [[f :as xs] seen]
@@ -879,6 +899,15 @@
   [vars body]
   `(apply concat (for ~vars ~body)))
 )
+
+(defmacro or-nullish
+  "Like or but will return the first non-nullish value"
+  ([] nil)
+  ([x] x)
+  ([x & next]
+      `(let [or# ~x]
+         (if (nullish? or#) (or ~@next)  or#))))
+
 
 ;;; ⩇⩆⩇ Vectors ⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇⩆⩇
 
@@ -1086,6 +1115,10 @@
   [hashmap]
   (dissoc-if (fn [[_ v]] (not v)) hashmap))
 
+(defn map-bidirectional
+  [map]
+  (merge map (set/map-invert map)))
+
 (defn map-invert-multiple
   "Returns the inverse of map with the vals mapped to the keys. Like set/map-invert, but does the sensible thing with multiple values.
 Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c}, 3 #{:c :d}, 1 #{:a}}`"
@@ -1113,6 +1146,25 @@ Ex: `(map-invert-multiple  {:a 1, :b 2, :c [3 4], :d 3}) ==>⇒ {2 #{:b}, 4 #{:c
                  (partial clean-maps pred)
                  (clean-map map pred))
                 map)))
+
+;;; Stolen from https://gitlab.com/kenrestivo/utilza/-/blob/master/src/utilza/misc.clj?ref_type=heads#L252
+
+(defn redact
+  "Takes a map and a key.
+   Walks the map, if the key is anywhere in there, and has a value, redacts it.
+   Used for hiding passwords in log files."
+  [m k]
+  (walk/postwalk #(if (and (map? %) (k %))
+                    (assoc % k "[REDACTED]")
+                    %)
+                 m))
+
+(defn redact-keys
+  "Takes a map and a coll of keys.
+   Walks the map, if the key is anywhere in there, and has a value, redacts it.
+   Used for hiding passwords in log files."
+  [m ks]
+  (reduce redact m ks))
 
 ;;; TODO delete by predicate (medley/remove-keys)
 (defn delete-keys

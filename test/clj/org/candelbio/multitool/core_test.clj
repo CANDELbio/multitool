@@ -31,6 +31,10 @@
   (is (= '{1 #{:a :b} 2 #{:b} } (map-invert-multiple {:a 1 :b '(1 2)})))
   )
 
+(deftest map-bidirectional-test
+  (is (= {:a :b, :b :a}
+         (map-bidirectional {:a :b}))))
+
 (deftest map-chunked-test
   (let [f (fn [x] (* x 2))]
     (= (map f (range 100))
@@ -186,7 +190,12 @@
   (testing "dotted keyword input"
     (is (= "yo"
            ((treeword :foo.bar)
-            {:foo {:bar "yo"}})))))
+            {:foo {:bar "yo"}}))))
+  (testing "dotted with an integer component"
+    (is (= 2
+           ((treeword :foo.1.bar)
+            {:foo [{:bar 1} {:bar 2} ]})
+           ))))
 
 ;;; TODO would make sense to have a re-seq variant that could return groups
 
@@ -195,11 +204,10 @@
   (testing "Double braces (default)"
     (let [template "The {{foo}} must have {{bar}}!"
           bindings1 {:foo "subgenius" :bar "slack"}
-          bindings2 {:foo "dog"}]
+      ]
       (is (= "The subgenius must have slack!"
              (expand-template template bindings1)))
-      (is (= "The dog must have !"
-             (expand-template template bindings2))))
+      )
     )
   (testing "Javascript templating, keywords"
     (let [template "The ${foo} must have ${bar}!"
@@ -220,6 +228,13 @@
     (is (= "This is useful is it not"
            (expand-template "This is {{quite.wack}} is it not"
                             {:quite {:wack "useful"}}))))
+  (testing "dots with numbers in var names"
+    (is (= "This is useful is it not"
+           (expand-template "This is {{quite.0}} is it not"
+                            {:quite ["useful" "expensive"]}))))
+  (testing "Missing param errors"
+    (is (thrown? Exception
+                 (expand-template "{{foo}} {{bar}} and baz" {:foo 23}))) )
   ;; TODO test :keyword=fn arg
   )
 
@@ -4220,3 +4235,22 @@ WHERE {{time-filter-clause}}
   (testing "actual"
     #_(is (=
            (get-in* full-contact [:properties :* :value] )))))
+
+;; TODO dissoc-if-test
+
+(deftest distinct-by-test
+  (= (set [{:id 1, :name "fred"} {:id 2, :name "ethel"}])
+     (distinct-by :id [{:id 1, :name "fred"} {:id 2, :name "ethel"}]))
+  (= (set [{:id 1, :name "fred"} {:id 2, :name "ethel"} {:id 1 :name "false fred"}])
+     (distinct-by :id [{:id 1, :name "fred"} {:id 2, :name "ethel"}])))
+
+(deftest nullish-test
+  (is (nullish? []))
+  (is (nullish? {}))
+  (is (nullish? ""))
+  (is (nullish? nil))
+  (is (nullish? false))
+  (testing "or-nullish"
+    (is (= 2 (or-nullish "" 2)))
+    (is (= 2 (or-nullish "" 2 (/ 0 0))))
+    ))
